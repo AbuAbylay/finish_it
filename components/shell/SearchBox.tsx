@@ -46,7 +46,13 @@ export function SearchBox() {
   const results = (items ?? []).filter((i) => !q || i.title.toLowerCase().includes(q)).slice(0, 8);
 
   return (
-    <div ref={boxRef} className="relative w-full max-w-md">
+    <div
+      ref={boxRef}
+      className="relative w-full max-w-md"
+      onBlur={(e) => {
+        if (!boxRef.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
+      }}
+    >
       <label className="relative block">
         <span className="sr-only">{s.search}</span>
         <Icon name="search" className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-ink-faint" />
@@ -58,7 +64,6 @@ export function SearchBox() {
           aria-expanded={open}
           autoComplete="off"
           onFocus={() => {
-            setOpen(true);
             void ensureItems();
           }}
           onChange={(e) => {
@@ -66,12 +71,15 @@ export function SearchBox() {
             setOpen(true);
           }}
           onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") {
+              e.preventDefault();
+              setOpen(false);
+            }
           }}
           className="h-tap w-full rounded-full border border-line bg-surface pr-4 pl-11 text-body text-ink focus:border-line-strong"
         />
       </label>
-      {open && (
+      {open && q.length > 0 && (
         <div id={listId} className="absolute inset-x-0 top-full z-40 mt-2 overflow-hidden rounded-card border border-line bg-surface p-2 shadow-popover">
           {error && <p className="p-3 text-small text-danger">{error}</p>}
           {!items && !error && <p className="p-3 text-small text-ink-muted">{s.searchLoading}</p>}

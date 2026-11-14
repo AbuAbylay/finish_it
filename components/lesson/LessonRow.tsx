@@ -30,9 +30,11 @@ export function LessonRow({ item, today, href }: { item: LessonListItem; today: 
   const body = (
     <>
       <div className={`grid w-date-block shrink-0 place-items-center self-stretch rounded-cell py-1 ${dateBlock}`} aria-hidden={!item.date}>
-        {item.date ? (
+        {item.state === "known" ? (
+          <Icon name="check-circle" className="size-6" />
+        ) : item.date ? (
           <span className="text-center">
-            <span className="block text-caption uppercase opacity-80">{WEEKDAY[weekdayOf(item.date)]}</span>
+            <span className="block text-caption uppercase">{WEEKDAY[weekdayOf(item.date)]}</span>
             <span className="block text-h2">{Number(item.date.slice(8))}</span>
           </span>
         ) : (

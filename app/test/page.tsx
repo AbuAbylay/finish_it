@@ -64,10 +64,14 @@ function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; 
         ) : (
           <p>{t.knownNone}</p>
         )}
-        <p>
-          <strong className="font-semibold">{lessonsLine.strong}</strong>
-          {lessonsLine.after}
-        </p>
+        {plan.pace.lessons_left === 0 ? (
+          <p>{t.allKnown}</p>
+        ) : (
+          <p>
+            <strong className="font-semibold">{lessonsLine.strong}</strong>
+            {lessonsLine.after}
+          </p>
+        )}
       </div>
       <Card>
         <PaceLine pace={plan.pace} />
@@ -83,8 +87,8 @@ function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; 
           ))}
         </ul>
       </Card>
-      <Button className="w-full" onClick={onStart}>
-        {t.start}
+      <Button className="h-12 w-full" onClick={onStart}>
+        {plan.pace.lessons_left === 0 ? t.finishLine : t.start}
       </Button>
     </div>
   );

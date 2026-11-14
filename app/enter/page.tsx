@@ -152,8 +152,14 @@ export default function EnterPage() {
                     {c.yourIdLabel}
                   </h2>
                   <div className="flex items-center gap-2 rounded-control bg-surface-muted p-3">
-                    <p ref={idRef} className="min-w-0 flex-1 font-mono text-h3 break-all text-ink">
-                      {loginId}
+                    <p ref={idRef} className="min-w-0 flex-1 font-mono text-h3 text-ink">
+                      {loginId.split("-").map((group, i, all) => (
+                        <span key={i} className="whitespace-nowrap">
+                          {group}
+                          {i < all.length - 1 && "-"}
+                          <wbr />
+                        </span>
+                      ))}
                     </p>
                     <Button variant="secondary" onClick={copyId} aria-label={`${c.copy} ${c.yourIdLabel}`}>
                       <Icon name={copied === "yes" ? "check" : "copy"} />

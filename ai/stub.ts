@@ -37,9 +37,9 @@ function hash(s: string): number {
 }
 
 /** A fill-in-the-gap question on one sentence. The longest content word is the answer. */
-function cloze(id: string, sentence: string, pool: string[], concept?: string): Question {
+function cloze(id: string, sentence: string, pool: string[], concept?: string, forced?: string): Question {
   const candidates = words(sentence);
-  const answer = candidates.reduce((a, b) => (b.length > a.length ? b : a), candidates[0] ?? "project");
+  const answer = forced ?? candidates.reduce((a, b) => (b.length > a.length ? b : a), candidates[0] ?? "project");
   const lower = answer.toLowerCase();
   const unique = new Map([...pool, ...FALLBACK_WORDS].map((w) => [w.toLowerCase(), w]));
   unique.delete(lower);
@@ -62,35 +62,58 @@ function cloze(id: string, sentence: string, pool: string[], concept?: string): 
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The sentence of an excerpt that contains a concept word, and that word as written there. */
+function findConcept(excerpt: string, concept: string): { sentence: string; word: string } | null {
+  const escaped = concept.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (!escaped) return null;
+  const re = new RegExp(`\\b${escaped}\\b`, "i");
+  for (const sentence of sentences(excerpt)) {
+    const m = re.exec(sentence);
+    if (m) return { sentence, word: m[0] };
+  }
+  return null;
+}
+
 export async function writeLesson(order: Order): Promise<Lesson | AiError> {
   await delay(400);
   const { unit } = order;
   const s = sentences(unit.excerpt);
-  const pick = (i: number) => s[Math.min(i, s.length - 1)];
+  const n = s.length;
+  const at = (i: number) => s[((i % n) + n) % n];
   const pool = words(unit.excerpt);
+  // Each mode starts from a different sentence, so a review or catch-up does not repeat the earlier questions.
+  const shift = order.mode === "new" ? 0 : order.mode === "review" ? 1 : 2;
 
   const opener =
     order.mode === "catch_up" ? "Quick recap" : order.mode === "review" ? "Another way to see it" : "The idea in plain words";
   const sections = [
-    { heading: opener, body_md: `**Goal for today:** ${unit.objective}.\n\n${pick(0)} ${pick(1)}`, source_quote: pick(0) },
-    {
-      heading: "Why it matters for you",
-      body_md: `You said your goal is: *${order.learner.goal || "finish this course"}*. Keep that in mind here:\n\n${pick(2)}`,
-      source_quote: pick(2),
-    },
+    { heading: opener, body_md: `**Goal for today:** ${unit.objective}.\n\n${at(shift + 1)}`, source_quote: at(shift) },
+    { heading: "In your course", body_md: at(shift + 3), source_quote: at(shift + 2) },
   ];
-  const quizSentences = [s.length - 1, Math.floor(s.length / 2), 1].map((i) => s[Math.max(0, Math.min(i, s.length - 1))]);
-  const quiz = quizSentences.map((sentence, i) => cloze(`${unit.unit_id}-q${i + 1}`, sentence, pool));
+
+  const picked: string[] = [];
+  for (const i of [n - 1, Math.floor(n / 2), 1, 0, 2, 3, 4]) {
+    const sentence = at(i + shift);
+    if (!picked.includes(sentence)) picked.push(sentence);
+    if (picked.length === 3) break;
+  }
+  while (picked.length < 3) picked.push(at(picked.length));
+  const quiz = picked.map((sentence, i) => cloze(`${unit.unit_id}-q${i + 1}`, sentence, pool));
+
+  // A review question asks about the concept that was missed, in the sentence where it appears.
   const review_quiz = order.review_concepts.map((rc, i) => {
+    const hit = findConcept(rc.excerpt, rc.concept);
     const rs = sentences(rc.excerpt);
-    return cloze(`${unit.unit_id}-r${i + 1}`, rs[i % rs.length], words(rc.excerpt), rc.concept);
+    return hit
+      ? cloze(`${unit.unit_id}-r${i + 1}`, hit.sentence, words(rc.excerpt), rc.concept, hit.word)
+      : cloze(`${unit.unit_id}-r${i + 1}`, rs[i % rs.length], words(rc.excerpt), rc.concept);
   });
 
   return {
     unit_id: unit.unit_id,
     title: unit.title,
     sections,
-    key_points: s.slice(0, 3).map((x) => (x.length > 140 ? `${x.slice(0, 137)}...` : x)),
+    key_points: [`${unit.objective}.`, `Words to know: ${quiz.map((q) => q.options[q.correct_index]).join(", ")}.`],
     quiz,
     review_quiz,
   };

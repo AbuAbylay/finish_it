@@ -112,6 +112,8 @@ export const copy = {
     knownPill: "Known",
     todoPill: "To do",
     start: "Start today's lesson",
+    allKnown: "You already know every topic, so there is nothing left to study before your exam.",
+    finishLine: "See your finish line",
   },
 
   pace: {
@@ -153,10 +155,10 @@ export const copy = {
   plan: {
     title: "Your plan",
     examOn: (date: string) => `Exam on ${date}`,
-    lessonsLeft: "lessons left",
-    daysLeft: "study days left",
+    lessonsLeft: (n: number) => (n === 1 ? "lesson left" : "lessons left"),
+    daysLeft: (n: number) => (n === 1 ? "study day left" : "study days left"),
     streak: "day streak",
-    sessions: "sessions done",
+    sessions: (n: number) => (n === 1 ? "session done" : "sessions done"),
     calendar: "Calendar",
     start: "Start today's lesson",
     another: "Do another lesson",

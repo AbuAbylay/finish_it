@@ -154,10 +154,10 @@ export default function PlanPage() {
         </Card>
 
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat value={pace.lessons_left} label={p.lessonsLeft} />
-          <Stat value={pace.days_left} label={p.daysLeft} />
+          <Stat value={pace.lessons_left} label={p.lessonsLeft(pace.lessons_left)} />
+          <Stat value={pace.days_left} label={p.daysLeft(pace.days_left)} />
           <Stat value={plan.streak} label={p.streak} />
-          <Stat value={plan.sessions_done} label={p.sessions} />
+          <Stat value={plan.sessions_done} label={p.sessions(plan.sessions_done)} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-2">

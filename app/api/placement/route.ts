@@ -7,8 +7,10 @@ export const dynamic = "force-dynamic";
 
 /** The five short-test questions, without answers. */
 export const GET = route(async (req) => {
-  const { plan } = requireSetUp(await context(req));
-  return json({ questions: plan.placement_test.map(publicQuestion) });
+  const { plan, record } = requireSetUp(await context(req));
+  const skipped = new Set((record.profile?.skip ?? []).map((t) => t.trim().toLowerCase()));
+  const skippedUnits = new Set(plan.units.filter((u) => skipped.has(u.title.trim().toLowerCase())).map((u) => u.unit_id));
+  return json({ questions: plan.placement_test.filter((q) => !skippedUnits.has(q.unit_id)).map(publicQuestion) });
 });
 
 /** Grades the short test and writes the initial unit statuses. Allowed until the first lesson is done. */

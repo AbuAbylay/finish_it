@@ -88,6 +88,10 @@ export function CalendarButton({ me }: { me: MeResponse }) {
           role="dialog"
           aria-labelledby={titleId}
           tabIndex={-1}
+          onBlur={(e) => {
+            const to = e.relatedTarget as Node | null;
+            if (to && !panelRef.current?.contains(to) && !buttonRef.current?.contains(to)) close(false);
+          }}
           className="fixed inset-x-4 top-[calc(var(--spacing-topbar-mobile)+0.5rem)] z-50 max-h-[calc(100dvh-var(--spacing-topbar-mobile)-1rem)] space-y-4 overflow-y-auto rounded-card border border-line bg-surface p-4 shadow-popover md:absolute md:inset-x-auto md:top-full md:right-0 md:mt-2 md:w-popover md:max-h-[calc(100dvh-var(--spacing-topbar)-1rem)]"
         >
           {cal.error && <ErrorCard message={cal.error} onRetry={cal.reload} />}
