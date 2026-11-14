@@ -97,6 +97,11 @@ def validate_lesson(lesson, order):
         errors.append(f"{total} words (cap {cap})")
     if not 1 <= len(lesson["sections"]) <= 4:
         errors.append(f"{len(lesson['sections'])} sections (want 1 to 4)")
+    if order.get("sections") and len(lesson["sections"]) != order["sections"]:
+        warnings.append(f"{len(lesson['sections'])} sections (order asked for {order['sections']})")
+    target = order.get("target_words")
+    if target and not 0.6 * target <= total <= 1.4 * target:
+        warnings.append(f"{total} words (order asked for about {target})")
     for number, section in enumerate(lesson["sections"], 1):
         if norm(section["source_quote"]) not in norm(excerpt):
             errors.append(f"section {number}: source_quote is not in the excerpt")
