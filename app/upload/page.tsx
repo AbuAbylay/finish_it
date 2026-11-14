@@ -99,6 +99,11 @@ export default function UploadPage() {
     setProblem({ kind: "retry", message, action });
   }
 
+  /** An error from the last attempt was about the text as it was then; once the text changes it no longer applies. */
+  function clearRetry() {
+    setProblem((p) => (p?.kind === "retry" ? null : p));
+  }
+
   async function build() {
     if (busy.current) return;
     const body = text.trim();
@@ -141,8 +146,10 @@ export default function UploadPage() {
     try {
       const content = await file.text();
       if (content.includes("\u0000")) return setFileNote({ ok: false, text: c.fileUnreadable });
+      if (content.trim() === "") return setFileNote({ ok: false, text: c.fileEmpty });
       setText(content);
       setFieldError(null);
+      clearRetry();
       setFileNote({ ok: true, text: c.fileLoaded(file.name) });
     } catch {
       setFileNote({ ok: false, text: c.fileUnreadable });
@@ -235,6 +242,7 @@ export default function UploadPage() {
                 onChange={(e) => {
                   setText(e.target.value);
                   setFieldError(null);
+                  clearRetry();
                 }}
                 rows={12}
                 spellCheck={false}

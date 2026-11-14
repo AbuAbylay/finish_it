@@ -13,9 +13,12 @@ export function ResultCard({
   onSkip,
   skipping,
   more,
+  finished = false,
 }: {
   /** Set when today's session holds another lesson (a session of 25 minutes or more is two short lessons). */
   more?: { done: number; total: number };
+  /** True when this lesson was the last topic: there is no next lesson, only the finish page. */
+  finished?: boolean;
   result: LessonResult;
   onNext: () => void;
   onPlan: () => void;
@@ -42,7 +45,23 @@ export function ResultCard({
           </ul>
         </div>
       )}
-      {more ? (
+      {finished ? (
+        <>
+          <p className="flex items-center gap-2 text-body text-ink">
+            <Icon name="check-circle" className="size-5 text-accent-strong" />
+            {t.courseFinished}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button className="h-12" onClick={onNext}>
+              {t.toFinish}
+              <Icon name="arrow-right" />
+            </Button>
+            <Button variant="secondary" className="h-12" onClick={onPlan}>
+              {t.backToPlan}
+            </Button>
+          </div>
+        </>
+      ) : more ? (
         <>
           <p className="flex items-center gap-2 text-body text-ink">
             <Icon name="clock" className="size-5 text-ink-muted" />
@@ -69,13 +88,16 @@ export function ResultCard({
           </Button>
         </div>
       )}
-      <div className="space-y-2 rounded-control border border-dashed border-warn-line bg-warn-soft p-4">
-        <p className="text-small text-ink">{t.demoHint}</p>
-        <Button variant="secondary" className="w-full" onClick={onSkip} disabled={skipping}>
-          <Icon name="clock" />
-          {skipping ? t.demoSkipping : t.demoSkip}
-        </Button>
-      </div>
+      {/* With the course finished there is no next lesson for tomorrow to change. */}
+      {!finished && (
+        <div className="space-y-2 rounded-control border border-dashed border-warn-line bg-warn-soft p-4">
+          <p className="text-small text-ink">{t.demoHint}</p>
+          <Button variant="secondary" className="w-full" onClick={onSkip} disabled={skipping}>
+            <Icon name="clock" />
+            {skipping ? t.demoSkipping : t.demoSkip}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

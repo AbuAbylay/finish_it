@@ -55,7 +55,9 @@ function EmailPreview({ data }: { data: ReminderResponse }) {
         {data.today_type ? (
           <Pill icon="clock" tone="accent" label={`${p.emailToday}: ${p.emailTypes[data.today_type]}`} />
         ) : (
-          <p className="text-small text-ink-muted">{p.emailNone}</p>
+          <p className="text-small text-ink-muted">
+            {data.none_reason === "finished" ? p.emailNoneFinished : data.none_reason === "rest" ? p.emailNoneRest : p.emailNone}
+          </p>
         )}
       </div>
       <div id={`${base}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}`} className="overflow-hidden rounded-control border border-line">

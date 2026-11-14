@@ -96,5 +96,11 @@ export async function reminderView({ record, plan, today, minutesToday = null }:
   for (const type of ["planned_day", "missed_day"] as const) {
     emails[type] = await renderReminder(type, record.profile.blocker, { ...base, minutes: minutes[type] });
   }
-  return { today, today_type: reminderToday(record, today), blocker: record.profile.blocker, emails };
+  // No email goes out once the course is finished or today's lesson is done; otherwise the rule decides,
+  // and a day with neither a planned nor a missed session is a rest day.
+  const studiedToday = record.sessions.some((s) => s.date === today);
+  const due = next.kind === "finished" || studiedToday ? null : reminderToday(record, today);
+  const none_reason: "finished" | "studied" | "rest" | null =
+    due !== null ? null : next.kind === "finished" ? "finished" : studiedToday ? "studied" : "rest";
+  return { today, today_type: due, none_reason, blocker: record.profile.blocker, emails };
 }

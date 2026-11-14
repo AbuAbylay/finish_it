@@ -29,19 +29,35 @@ interface Draft {
   note: string;
 }
 
+/** The learner's own course (not the sample): question 1 shows its title and questions 2, 3 and 7 drop the PMP wording. */
+const isOwn = (me: MeResponse) => me.sample === null && !!me.course;
+
+/** Questions 2, 3 and 7 as worded for this learner's course. */
+function wording(me: MeResponse) {
+  return isOwn(me) ? s.own : { q2: s.q2, q3: s.q3, q7: s.q7 };
+}
+
+/** A saved draft may hold answers written for the other course; anything that is not an option here goes back to the first one. */
+function fitted(d: Draft, me: MeResponse): Draft {
+  const w = wording(me);
+  const pick = (value: string, options: readonly { value: string }[]) => (options.some((o) => o.value === value) ? value : options[0].value);
+  return { ...d, goal: pick(d.goal, w.q2.options), success: pick(d.success, w.q3.options), prior: pick(d.prior, w.q7.options) };
+}
+
 /** The ★ answers from COPY.md (study days: all seven, so "skip to tomorrow" always lands on a study day). */
 function exampleDraft(me: MeResponse): Draft {
+  const w = wording(me);
   return {
     step: 0,
-    goal: s.q2.options[0].value,
-    success: s.q3.options[0].value,
+    goal: w.q2.options[0].value,
+    success: w.q3.options[0].value,
     focus: [],
     skip: [],
     minutes: 15,
     days: [...WEEKDAYS],
     deadlineChoice: 0,
     deadlineDate: addDays(me.today, s.q6.options[0].days),
-    prior: s.q7.options[0].value,
+    prior: w.q7.options[0].value,
     blocker: "time",
     note: s.q8.notes.time[0],
   };
@@ -73,7 +89,7 @@ function deadlineOf(d: Draft, me: MeResponse): string {
 function toProfile(d: Draft, me: MeResponse): Profile {
   return {
     // The learner's own course keeps the title its plan was given; the sample keeps the one from COPY.md.
-    course_title: me.sample === null && me.course ? me.course.title : s.q1.options[0].value,
+    course_title: isOwn(me) && me.course ? me.course.title : s.q1.options[0].value,
     goal: d.goal,
     success: d.success,
     focus: d.focus,
@@ -122,7 +138,7 @@ export default function Survey() {
   const [pickOne, setPickOne] = useState(false);
 
   useEffect(() => {
-    if (me && !d) setD(loadDraft<Draft>("survey") ?? initialDraft(me));
+    if (me && !d) setD(fitted(loadDraft<Draft>("survey") ?? initialDraft(me), me));
   }, [me, d]);
 
   useEffect(() => {
@@ -149,6 +165,7 @@ export default function Survey() {
     setD({ ...d, ...patch });
   };
   const units = me.course?.units ?? [];
+  const w = wording(me);
 
   async function save(draft: Draft, kind: "finish" | "example") {
     if (!me) return;
@@ -184,16 +201,16 @@ export default function Survey() {
   };
 
   const steps: ReactNode[] = [
-    <Question key="q1" title={s.q1.question} help={me.sample === null ? s.q1.ownNote : undefined}>
+    <Question key="q1" title={s.q1.question} help={isOwn(me) ? s.q1.ownNote : undefined}>
       <Chip selected onClick={() => undefined}>
-        {me.sample === null && me.course ? me.course.title : s.q1.options[0].label}
+        {isOwn(me) && me.course ? me.course.title : s.q1.options[0].label}
       </Chip>
     </Question>,
-    <Question key="q2" title={s.q2.question}>
-      <OneOf options={s.q2.options} value={d.goal} onChange={(goal) => set({ goal })} />
+    <Question key="q2" title={w.q2.question}>
+      <OneOf options={w.q2.options} value={d.goal} onChange={(goal) => set({ goal })} />
     </Question>,
-    <Question key="q3" title={s.q3.question}>
-      <OneOf options={s.q3.options} value={d.success} onChange={(success) => set({ success })} />
+    <Question key="q3" title={w.q3.question}>
+      <OneOf options={w.q3.options} value={d.success} onChange={(success) => set({ success })} />
     </Question>,
     <Question key="q4" title={s.q4.question} help={s.q4.help}>
       <RowLabel>{s.q4.focusLabel}</RowLabel>
@@ -269,8 +286,8 @@ export default function Survey() {
         />
       </label>
     </Question>,
-    <Question key="q7" title={s.q7.question}>
-      <OneOf options={s.q7.options} value={d.prior} onChange={(prior) => set({ prior })} />
+    <Question key="q7" title={w.q7.question}>
+      <OneOf options={w.q7.options} value={d.prior} onChange={(prior) => set({ prior })} />
     </Question>,
     <Question key="q8" title={s.q8.question}>
       <div className="grid gap-2">

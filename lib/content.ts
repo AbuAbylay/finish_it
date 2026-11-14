@@ -40,6 +40,36 @@ export const copy = {
         { label: "Feel ready enough to book the exam", value: "Feel ready enough to book the exam" },
       ],
     },
+    /** Questions 2, 3 and 7 for a learner's own course: the same choices without the PMP wording. */
+    own: {
+      q2: {
+        question: "Why does this course matter to you?",
+        options: [
+          { label: "Move into a new role", value: "Move into a new role" },
+          { label: "Get promoted or earn more where I am", value: "Get promoted or earn more in my current role" },
+          { label: "Switch to a new field", value: "Switch to a new field" },
+          { label: "Keep my job secure", value: "Keep my job secure" },
+          { label: "Prove to myself I can finish", value: "Prove to myself I can finish" },
+        ],
+      },
+      q3: {
+        question: "What does finishing look like for you?",
+        options: [
+          { label: "Pass the exam on the first attempt", value: "Pass the exam on the first attempt" },
+          { label: "Finish the course before my exam date", value: "Finish the course before the exam date" },
+          { label: "Feel ready enough to book the exam", value: "Feel ready enough to book the exam" },
+        ],
+      },
+      q7: {
+        question: "Where are you starting from?",
+        options: [
+          { label: "I use this at work, but I'm self-taught", value: "Uses this at work, self-taught, no formal training" },
+          { label: "I've had some formal training", value: "Some formal training in this subject" },
+          { label: "I started a course on this before and stopped", value: "Started a course on this before and stopped" },
+          { label: "I took the exam before and didn't pass", value: "Took the exam before and did not pass" },
+        ],
+      },
+    },
     q4: {
       question: "Anything to focus on, or skip?",
       help: "Optional, tap any.",
@@ -182,6 +212,8 @@ export const copy = {
     emailTypes: { planned_day: "Study day", missed_day: "Missed day" },
     emailToday: "Sent today",
     emailNone: "No email today: you've already studied.",
+    emailNoneRest: "No email today: it's a rest day.",
+    emailNoneFinished: "No email today: you've finished the course.",
     to: "To: you",
     subject: "Subject",
     skipping: "Moving to tomorrow…",

@@ -2,9 +2,10 @@
 // Today's lesson: the time chooser at the start of a day's session, then the why line, a quick review first
 // (when due), the reading, and a quiz checked one question at a time.
 // /lesson?unit=X re-reads a covered unit without changing progress. /lesson?k=KEY reopens a graded lesson.
+// The page follows its URL: a link or a search result that leads from one of these to another loads it.
 // The server enforces locking; this page only renders what it is given.
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Icon } from "@/components/icons";
 import { LessonBody } from "@/components/lesson/LessonBody";
@@ -47,12 +48,28 @@ type View =
 
 function readUrl(): Params {
   const p = new URLSearchParams(window.location.search);
-  return { key: p.get("k"), unit: p.get("unit") };
+  return { key: p.get("k") ?? p.get("key"), unit: p.get("unit") };
 }
 
-function setUrl(params: Params) {
-  const q = params.key ? `?k=${encodeURIComponent(params.key)}` : params.unit ? `?unit=${encodeURIComponent(params.unit)}` : "";
-  window.history.replaceState(null, "", `/lesson${q}`);
+/** One string per thing the page can show: a lesson by key, a unit, or today's lesson. */
+function signature(params: Params): string {
+  return params.key ? `k:${params.key}` : params.unit ? `unit:${params.unit}` : "today";
+}
+
+function LessonSkeleton() {
+  return (
+    <>
+      <Spinner label={t.writing} />
+      <div className="space-y-4" aria-hidden>
+        <div className="skeleton h-7 w-40" />
+        <div className="skeleton h-9 w-3/4" />
+        <div className="skeleton h-20 w-full rounded-card" />
+        <div className="skeleton h-4 w-full" />
+        <div className="skeleton h-4 w-11/12" />
+        <div className="skeleton h-4 w-4/5" />
+      </div>
+    </>
+  );
 }
 
 /** All questions with their feedback, read-only (a graded lesson or a re-read). */
@@ -77,8 +94,28 @@ function LessonHeader({ data, sessionLabel }: { data: PresentedLesson; sessionLa
   );
 }
 
+/** The page reads the query string, so it renders inside a Suspense boundary (required for a prerendered page). */
 export default function LessonPage() {
+  return (
+    <Suspense
+      fallback={
+        <AppShell me={null} title={t.title}>
+          <div className="mx-auto max-w-reading space-y-6 pb-24">
+            <LessonSkeleton />
+          </div>
+        </AppShell>
+      }
+    >
+      <LessonView />
+    </Suspense>
+  );
+}
+
+function LessonView() {
   const router = useRouter();
+  const search = useSearchParams();
+  const urlKey = search.get("k") ?? search.get("key");
+  const urlUnit = search.get("unit");
   const { me, error: gateError, reload } = useGate(["lesson", "done"]);
   const [view, setView] = useState<View>({ kind: "loading" });
   const [checked, setChecked] = useState<Record<string, QuestionResult>>({});
@@ -93,12 +130,21 @@ export default function LessonPage() {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [choosing, setChoosing] = useState(false);
   const [chooseError, setChooseError] = useState<string | null>(null);
-  const loadedOnce = useRef(false);
+  /** What the page is showing or loading, as a signature of its URL. Null before the first load. */
+  const shown = useRef<string | null>(null);
   const reviewRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
+  /** Puts the address bar in step with what the page shows, without loading anything. */
+  const setUrl = useCallback((params: Params) => {
+    shown.current = signature(params);
+    const q = params.key ? `?k=${encodeURIComponent(params.key)}` : params.unit ? `?unit=${encodeURIComponent(params.unit)}` : "";
+    window.history.replaceState(null, "", `/lesson${q}`);
+  }, []);
+
   const load = useCallback(
     async (params: Params): Promise<void> => {
+      shown.current = signature(params);
       setView({ kind: "loading" });
       setGradeError(null);
       setReviewHint(false);
@@ -135,14 +181,18 @@ export default function LessonPage() {
       setReviewDone(data.lesson.review_quiz.every((q) => q.question_id in data.checked));
       setView({ kind: "lesson", data });
     },
-    [router],
+    [router, setUrl],
   );
 
+  // Follow the URL: the first load, and every later navigation to another /lesson address
+  // (the Locked screen's link, a search result, the browser's back button).
   useEffect(() => {
-    if (!me || loadedOnce.current) return;
-    loadedOnce.current = true;
-    void load(readUrl());
-  }, [me, load]);
+    if (!me) return;
+    const params: Params = { key: urlKey, unit: urlUnit };
+    if (shown.current === signature(params)) return;
+    window.scrollTo({ top: 0 });
+    void load(params);
+  }, [me, urlKey, urlUnit, load]);
 
   // The demo clock moved (calendar popover or the shortcut below): show the lesson that is open now.
   useEffect(
@@ -153,7 +203,7 @@ export default function LessonPage() {
         setUrl(params);
         void load(params);
       }),
-    [load],
+    [load, setUrl],
   );
 
   async function choose(minutes: number) {
@@ -174,6 +224,7 @@ export default function LessonPage() {
     });
     if (!res.ok) {
       if (res.code === "locked" || res.code === "stale") {
+        setUrl({});
         void load({});
         return null;
       }
@@ -196,7 +247,10 @@ export default function LessonPage() {
     const res = await api<AnswersResponse>("/api/answers", { method: "POST", body: { lesson_key: view.data.lesson_key } });
     if (!res.ok) {
       setGrading(false);
-      if (res.code === "locked" || res.code === "stale") return void load({});
+      if (res.code === "locked" || res.code === "stale") {
+        setUrl({});
+        return void load({});
+      }
       return setGradeError(res.error);
     }
     // Today's session may hold a second lesson; the result card needs the fresh count.
@@ -210,8 +264,11 @@ export default function LessonPage() {
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
+  // No lesson is open any more: the one just graded was the last topic of the course.
+  const finished = stage === "done" || (session !== null && session.open_unit_id === null);
+
   function nextLesson() {
-    if (stage === "done") return router.push("/done");
+    if (finished) return router.push("/done");
     setUrl({});
     window.scrollTo({ top: 0 });
     void load({});
@@ -234,21 +291,7 @@ export default function LessonPage() {
 
   if (gateError) return shell(<ErrorCard message={gateError} onRetry={reload} />);
 
-  if (view.kind === "loading") {
-    return shell(
-      <>
-        <Spinner label={t.writing} />
-        <div className="space-y-4" aria-hidden>
-          <div className="skeleton h-7 w-40" />
-          <div className="skeleton h-9 w-3/4" />
-          <div className="skeleton h-20 w-full rounded-card" />
-          <div className="skeleton h-4 w-full" />
-          <div className="skeleton h-4 w-11/12" />
-          <div className="skeleton h-4 w-4/5" />
-        </div>
-      </>,
-    );
-  }
+  if (view.kind === "loading") return shell(<LessonSkeleton />);
 
   if (view.kind === "choose") {
     return shell(<MinutesChooser session={view.session} busy={choosing} error={chooseError} onStart={choose} />);
@@ -317,7 +360,7 @@ export default function LessonPage() {
       ? copy.session.lessonOf(session.lessons_done_today + 1, session.lessons_in_session)
       : null;
   const more =
-    split && result && stage !== "done" && session.open_unit_id !== null && session.lessons_done_today === 1
+    split && result && !finished && session.lessons_done_today === 1
       ? { done: 1, total: session.lessons_in_session }
       : undefined;
 
@@ -389,7 +432,15 @@ export default function LessonPage() {
 
       {result && (
         <div ref={resultRef} className="scroll-mt-20">
-          <ResultCard result={result} more={more} onNext={nextLesson} onPlan={() => router.push("/")} onSkip={skipToTomorrow} skipping={skipping} />
+          <ResultCard
+            result={result}
+            more={more}
+            finished={finished}
+            onNext={nextLesson}
+            onPlan={() => router.push("/")}
+            onSkip={skipToTomorrow}
+            skipping={skipping}
+          />
         </div>
       )}
 

@@ -437,6 +437,17 @@ describe("pace", () => {
     expect(pace(long, plan, MON)).toMatchObject({ days_left: 5, spare_days: 3 });
   });
 
+  it("a catch-up day does not count as room for a new topic, before or after the catch-up", () => {
+    // Studied Monday, missed Tuesday and Wednesday. Thursday's lesson is a recap, so the 2 lessons left
+    // have only Friday before the Saturday exam.
+    const r = study(placed(MON, profile({ deadline: "2026-11-21" })), MON).record;
+    expect(orderOf(pickNext(r, plan, THU)).mode).toBe("catch_up");
+    const before = pace(r, plan, THU);
+    expect(before).toMatchObject({ lessons_left: 2, days_left: 1, on_track: false, behind_by: 1, line: "Behind by 1 lesson" });
+    const after = pace(study(r, THU).record, plan, THU);
+    expect(after).toMatchObject({ lessons_left: 2, days_left: 1, behind_by: 1, line: "Behind by 1 lesson" });
+  });
+
   it("after the first of today's two lessons, today still counts for the second", () => {
     // Thursday, exam on Saturday: two study days of two lessons each for the 3 lessons left.
     const start = placed(MON, profile({ deadline: "2026-11-21", minutes_per_day: 30 }));

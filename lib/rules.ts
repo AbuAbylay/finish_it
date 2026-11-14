@@ -580,6 +580,7 @@ export interface Pace {
  * lessons_left = units still `todo` or `needs_review`.
  * days_left = planned study days from today up to (not including) the exam date.
  * Today counts only while it still has room for a lesson: one lesson a day, or two from 25 minutes.
+ * A catch-up recap that is due today takes one of today's lessons without finishing a topic.
  * On track while the lessons left fit into the room left: today's free lessons plus the later days' lessons.
  */
 export function pace(record: LearnerRecord, plan: CoursePlan, today: string): Pace {
@@ -591,7 +592,9 @@ export function pace(record: LearnerRecord, plan: CoursePlan, today: string): Pa
   const laterDays = hasDeadline ? countStudyDays(addDays(today, 1), deadline, studyDays) : 0;
   const todayIsPlanned = hasDeadline && countStudyDays(today, deadline, studyDays) > laterDays;
   const doneToday = record.sessions.filter((s) => s.date === today).length;
-  const roomToday = todayIsPlanned ? Math.max(0, lessons_per_day - doneToday) : 0;
+  // The same condition as the picker's rule 1: a session exists and planned days were missed since last_active.
+  const catchUpDue = doneToday === 0 && record.sessions.length > 0 && missedStudyDays(record, today).length > 0;
+  const roomToday = todayIsPlanned ? Math.max(0, lessons_per_day - doneToday - (catchUpDue ? 1 : 0)) : 0;
   const days_left = laterDays + (roomToday > 0 ? 1 : 0);
   const capacity = laterDays * lessons_per_day + roomToday;
   const on_track = lessons_left <= capacity;

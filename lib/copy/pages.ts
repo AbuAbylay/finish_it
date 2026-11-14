@@ -63,6 +63,7 @@ export const uploadCopy = {
   fileWrongType: "That file type is not supported. Choose a .txt or .md file, or paste the text.",
   fileTooBig: "That file is too large. Paste the part of the course you want to start with.",
   fileUnreadable: "We couldn't read that file. Paste the text instead.",
+  fileEmpty: "That file is empty. Choose another file, or paste the text.",
   caution: "Leave out anything confidential. The text is sent to an AI model, and the parts used in your plan are stored with it.",
   // Also returned by POST /api/course (400 too_short, 413 too_long).
   tooShort: "Paste more of your course: at least 1,500 characters, about one page.",
@@ -80,6 +81,20 @@ export const uploadCopy = {
   replace: "Use a different text",
   useSample: "Use the sample PMP course instead",
   loadingSample: "Loading the sample course…",
+} as const;
+
+/**
+ * The short test's heading with the real number of questions: fewer than five when topics were
+ * skipped in the survey. COPY.md has "Quick check: 5 questions"; with five it reads the same.
+ */
+export const testTitle = (questions: number | null) => (questions === null ? "Quick check" : `Quick check: ${plural(questions, "question")}`);
+
+// Not in COPY.md: an address that leads nowhere.
+export const notFoundCopy = {
+  tabTitle: "Page not found · Finish-it coach",
+  title: "This page doesn't exist.",
+  line: "The link may be old or mistyped. Your progress is safe.",
+  back: "Go to the start",
 } as const;
 
 export const modeLabel: Record<Mode, string> = { new: "New topic", review: "Review", catch_up: "Catch-up" };
@@ -152,6 +167,9 @@ export const lessonCopy = {
   comingBack: "Coming back to you:",
   backToPlan: "Back to my plan",
   nextLesson: "Next lesson",
+  // Not in COPY.md: the result card after the last topic of the course.
+  courseFinished: "That was the last topic. You finished the course.",
+  toFinish: "See your finish line",
   demoHint: "Demo: move to tomorrow to see how the next lesson changes.",
   demoSkip: "Demo: skip to tomorrow",
   demoSkipping: "Moving to tomorrow…",

@@ -7,6 +7,7 @@ import { Icon } from "@/components/icons";
 import { Button, Spinner } from "@/components/ui";
 import { STAGE_HOME } from "@/components/useGate";
 import type { EnterResponse, GenerateResponse, MeResponse } from "@/lib/api-types";
+import { LOGIN_ID_HINT, isValidLoginId, normalizeLoginId } from "@/lib/login-id";
 import { api, signOut } from "@/lib/client";
 import { enterCopy as c } from "@/lib/copy/pages";
 
@@ -93,6 +94,8 @@ export default function EnterPage() {
   async function enter(e: FormEvent) {
     e.preventDefault();
     if (entering) return;
+    // A slip of the keyboard is caught here, without a request and without counting as a failed lookup.
+    if (!isValidLoginId(normalizeLoginId(typed))) return setEnterError(LOGIN_ID_HINT);
     setEntering(true);
     setEnterError(null);
     const res = await api<EnterResponse>("/api/identity/enter", { method: "POST", body: { login_id: typed } });

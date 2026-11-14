@@ -15,6 +15,17 @@ export function clientKey(): string {
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; code: string };
 
+/**
+ * What the learner reads when an error response carries no message of its own: the host answered
+ * instead of the app (a function that ran out of time, a gateway error).
+ */
+export function fallbackError(status: number): string {
+  if (status === 504 || status === 408) return "That took too long to answer. Please try again.";
+  if (status >= 500) return "Something went wrong on our side. Please try again.";
+  if (status === 429) return "Too many requests just now. Wait a moment, then try again.";
+  return "That request didn't go through. Please try again.";
+}
+
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<ApiResult<T>> {
   try {
     const res = await fetch(path, {
@@ -28,7 +39,7 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
       credentials: "same-origin",
     });
     const data = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
-    if (!res.ok) return { ok: false, status: res.status, error: data.error ?? `Request failed (${res.status})`, code: data.code ?? "error" };
+    if (!res.ok) return { ok: false, status: res.status, error: data.error || fallbackError(res.status), code: data.code ?? "error" };
     return { ok: true, data };
   } catch {
     return { ok: false, status: 0, error: "We couldn't reach the server. Check your connection and try again.", code: "network" };

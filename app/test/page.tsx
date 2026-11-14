@@ -9,6 +9,7 @@ import { useGate } from "@/components/useGate";
 import type { PlanResponse, PublicQuestion } from "@/lib/api-types";
 import { api, clearDraft, clientKey, loadDraft, saveDraft, shuffledIndexes } from "@/lib/client";
 import { copy } from "@/lib/content";
+import { testTitle } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 import { WEEKDAYS, type Weekday } from "@/lib/types";
 
@@ -169,7 +170,7 @@ export default function PlacementTest() {
     <AppShell me={me} variant="flow">
       <div className="mx-auto max-w-reading space-y-6">
         <div className="space-y-2">
-          <h1 className="text-h1 text-ink">{t.title}</h1>
+          <h1 className="text-h1 text-ink">{testTitle(questions && questions.length > 0 ? questions.length : null)}</h1>
           <p className="text-body text-ink-muted">{t.sub}</p>
         </div>
 

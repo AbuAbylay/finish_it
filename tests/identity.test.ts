@@ -73,12 +73,17 @@ describe("ID entry flow", () => {
   it("failed lookups are rate-limited per IP", async () => {
     const attacker = new Client("10.9.9.9");
     const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) {
+    // Text that cannot be an ID is refused without a lookup and does not count.
+    for (let i = 0; i < 60; i++) {
+      const res = await attacker.call(enter, "/api/identity/enter", { method: "POST", body: { login_id: "oops" } });
+      expect(res.status).toBe(400);
+    }
+    for (let i = 0; i < 52; i++) {
       const res = await attacker.call(enter, "/api/identity/enter", { method: "POST", body: { login_id: `guess-${String(i).padStart(4, "0")}` } });
       statuses.push(res.status);
     }
-    expect(statuses.slice(0, 10).every((s) => s === 404)).toBe(true);
-    expect(statuses.slice(10)).toEqual([429, 429]);
+    expect(statuses.slice(0, 50).every((s) => s === 404)).toBe(true);
+    expect(statuses.slice(50)).toEqual([429, 429]);
     // Another IP is not affected.
     const other = await new Client("10.9.9.8").call(enter, "/api/identity/enter", { method: "POST", body: { login_id: "guess-0000" } });
     expect(other.status).toBe(404);

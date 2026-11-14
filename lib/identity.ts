@@ -15,6 +15,7 @@ import {
   loginIdOf,
 } from "./db";
 import { HttpError, clientIp } from "./http";
+import { LOGIN_ID_HINT, isValidLoginId, normalizeLoginId } from "./login-id";
 import { newRecord } from "./rules";
 import type { LearnerRecord } from "./types";
 
@@ -23,12 +24,14 @@ const SESSION_MAX_AGE_S = 180 * 24 * 3600;
 
 /** Crockford base32 without i, l, o, u: easy to read aloud and to type. */
 const ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
-const LOGIN_ID = /^[a-z0-9-]{8,40}$/;
 
 const LIMITS = {
   enterWindowMs: 15 * 60 * 1000,
-  enterFailures: 10,
-  enterTotal: 60,
+  // Failed lookups per network in the window. An ID carries 100 random bits, so guessing is hopeless at
+  // any rate; the limit is set so that a hall of people behind one address, mistyping IDs, cannot lock
+  // each other out.
+  enterFailures: 50,
+  enterTotal: 300,
   generateWindowMs: 60 * 60 * 1000,
   // A venue can put every juror behind one address, so the default leaves room for a full hall.
   generateTotal: Number(process.env.ID_CAP_PER_IP_HOUR) > 0 ? Number(process.env.ID_CAP_PER_IP_HOUR) : 300,
@@ -41,13 +44,7 @@ export function generateLoginId(): string {
   return [0, 5, 10, 15].map((i) => chars.slice(i, i + 5).join("")).join("-");
 }
 
-export function normalizeLoginId(input: string): string {
-  return input.trim().toLowerCase().replace(/\s+/g, "");
-}
-
-export function isValidLoginId(id: string): boolean {
-  return LOGIN_ID.test(id);
-}
+export { isValidLoginId, normalizeLoginId };
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -119,10 +116,8 @@ export async function findLearnerByLoginId(req: NextRequest, typed: unknown): Pr
     throw new HttpError(429, "Too many tries from this network. Wait 15 minutes, then try again.", "rate_limited");
   }
   const id = typeof typed === "string" ? normalizeLoginId(typed) : "";
-  if (!isValidLoginId(id)) {
-    await logAuthAttempt(ip, "enter", false);
-    throw new HttpError(400, "An ID is 8 to 40 characters: letters, digits and dashes.", "bad_id");
-  }
+  // Text that cannot be an ID is never looked up, so it does not count as a failed lookup.
+  if (!isValidLoginId(id)) throw new HttpError(400, LOGIN_ID_HINT, "bad_id");
   const learnerId = await learnerIdByLoginId(id);
   await logAuthAttempt(ip, "enter", learnerId !== null);
   if (!learnerId) throw new HttpError(404, "We don't recognise that ID. Check it for typos, or get a new one.", "unknown_id");

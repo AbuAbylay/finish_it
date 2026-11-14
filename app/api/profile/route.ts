@@ -11,6 +11,7 @@ export const POST = route(async (req) => {
   const body = (await readJson(req)) as { profile?: unknown };
   const parsed = parseProfile(body.profile);
   if (!parsed.ok) throw new HttpError(400, `Some answers are missing or invalid: ${parsed.error}`, "bad_profile");
+  if (parsed.profile.deadline <= ctx.today) throw new HttpError(400, "Pick an exam date after today.", "bad_deadline");
   await saveLearner({ ...ctx.record, profile: parsed.profile });
   return json({ ok: true, profile: parsed.profile });
 });
