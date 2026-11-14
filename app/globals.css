@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: #fafaf9;
+  color: #1c1917;
+  overflow-wrap: anywhere;
+}
+
+/* Lesson body text rendered from Markdown */
+.prose-lesson {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.prose-lesson p {
+  margin: 0.75rem 0;
+}
+.prose-lesson ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0.75rem 0;
+}
+.prose-lesson ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0.75rem 0;
+}
+.prose-lesson li {
+  margin: 0.25rem 0;
+}
+.prose-lesson strong {
+  font-weight: 650;
+}
+.prose-lesson h1,
+.prose-lesson h2,
+.prose-lesson h3 {
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+.prose-lesson code {
+  background: #f5f5f4;
+  border-radius: 0.25rem;
+  padding: 0 0.25rem;
+}
+.prose-lesson a {
+  text-decoration: underline;
+}
