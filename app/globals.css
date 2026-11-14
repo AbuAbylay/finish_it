@@ -1,23 +1,209 @@
 @import "tailwindcss";
 
-:root {
-  color-scheme: light;
+/*
+ * Finish-it coach design tokens. The spec is docs/design.md.
+ * Components use only these tokens (bg-surface, text-ink, rounded-card, shadow-card, ...).
+ * Tailwind's default palette stays available for legacy components while they migrate.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Surfaces */
+  --color-canvas: #f6f5f2;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1efeb;
+  --color-sidebar: #fbfaf8;
+  --color-sidebar-active: #e9e6e1;
+  --color-overlay: rgb(28 26 23 / 0.4);
+
+  /* Text and lines */
+  --color-ink: #1c1a17;
+  --color-ink-muted: #5f5a53;
+  --color-ink-faint: #7a746b;
+  --color-line: #e4e1db;
+  --color-line-strong: #948d83;
+
+  /* One dark primary action */
+  --color-primary: #1c1a17;
+  --color-primary-hover: #3a3631;
+  --color-on-primary: #ffffff;
+
+  /* States: always paired with an icon and a text label */
+  --color-accent: #1f7a55;
+  --color-accent-strong: #165c40;
+  --color-accent-soft: #e6f2ec;
+  --color-warn: #8a5a00;
+  --color-warn-soft: #fbf1dc;
+  --color-warn-line: #ebcf94;
+  --color-danger: #b4233c;
+  --color-danger-soft: #fbe9ec;
+  --color-info: #1d5f8a;
+  --color-info-soft: #e5f0f8;
+  --color-locked: #6b665f;
+  --color-locked-soft: #efede9;
+
+  /* Soft illustrated card bands */
+  --color-band-green: #e3f0e8;
+  --color-band-sand: #f6ecd8;
+  --color-band-sky: #e2ecf5;
+
+  --color-ring: #1f7a55;
+
+  /* Type scale */
+  --text-display-lg: 2.5rem;
+  --text-display-lg--line-height: 1.15;
+  --text-display-lg--font-weight: 700;
+  --text-display-lg--letter-spacing: -0.025em;
+  --text-display: 2rem;
+  --text-display--line-height: 1.2;
+  --text-display--font-weight: 700;
+  --text-display--letter-spacing: -0.02em;
+  --text-h1: 1.625rem;
+  --text-h1--line-height: 1.25;
+  --text-h1--font-weight: 700;
+  --text-h1--letter-spacing: -0.015em;
+  --text-h2: 1.25rem;
+  --text-h2--line-height: 1.4;
+  --text-h2--font-weight: 700;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h3: 1.0625rem;
+  --text-h3--line-height: 1.45;
+  --text-h3--font-weight: 600;
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.65;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.45;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.35;
+  --text-caption--font-weight: 600;
+  --text-caption--letter-spacing: 0.06em;
+
+  /* Radius */
+  --radius-card: 1.25rem;
+  --radius-control: 0.875rem;
+  --radius-cell: 0.625rem;
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(28 26 23 / 0.04), 0 4px 16px rgb(28 26 23 / 0.05);
+  --shadow-raised: 0 2px 4px rgb(28 26 23 / 0.06), 0 8px 24px rgb(28 26 23 / 0.08);
+  --shadow-popover: 0 2px 6px rgb(28 26 23 / 0.06), 0 16px 40px rgb(28 26 23 / 0.16);
+
+  /* Layout sizes (w-*, h-*, min-h-*, p-*) */
+  --spacing-tap: 2.75rem;
+  --spacing-topbar: 4rem;
+  --spacing-topbar-mobile: 3.5rem;
+  --spacing-sidebar: 15rem;
+  --spacing-sidebar-collapsed: 4.5rem;
+  --spacing-drawer: 17.5rem;
+  --spacing-popover: 21.5rem;
+  --spacing-date-block: 3.5rem;
+
+  /* Content widths (max-w-*) */
+  --container-content: 56rem;
+  --container-reading: 42rem;
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  @keyframes shimmer {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: -100% 0;
+    }
+  }
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    overflow-wrap: anywhere;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-ink-faint);
+  }
 }
 
-body {
-  background: #fafaf9;
-  color: #1c1917;
-  overflow-wrap: anywhere;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Soft illustrated header bands for cards: gradients and circles only, no images. */
+@utility band-green {
+  background:
+    radial-gradient(circle at 86% 28%, rgb(255 255 255 / 0.6) 0 14%, transparent 15%),
+    radial-gradient(circle at 74% 118%, rgb(31 122 85 / 0.16) 0 34%, transparent 35%),
+    radial-gradient(circle at 8% -30%, rgb(31 122 85 / 0.12) 0 42%, transparent 43%),
+    linear-gradient(135deg, var(--color-band-green), var(--color-surface-muted));
+}
+
+@utility band-sand {
+  background:
+    radial-gradient(circle at 88% 30%, rgb(255 255 255 / 0.6) 0 13%, transparent 14%),
+    radial-gradient(circle at 70% 120%, rgb(138 90 0 / 0.12) 0 34%, transparent 35%),
+    radial-gradient(circle at 10% -30%, rgb(138 90 0 / 0.09) 0 42%, transparent 43%),
+    linear-gradient(135deg, var(--color-band-sand), var(--color-surface-muted));
+}
+
+@utility band-sky {
+  background:
+    radial-gradient(circle at 86% 30%, rgb(255 255 255 / 0.6) 0 14%, transparent 15%),
+    radial-gradient(circle at 72% 118%, rgb(29 95 138 / 0.13) 0 34%, transparent 35%),
+    radial-gradient(circle at 8% -30%, rgb(29 95 138 / 0.1) 0 42%, transparent 43%),
+    linear-gradient(135deg, var(--color-band-sky), var(--color-surface-muted));
+}
+
+/* Loading placeholder block. Size it with w-* / h-*. */
+@utility skeleton {
+  border-radius: var(--radius-cell);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-muted) 0%,
+    var(--color-surface-muted) 40%,
+    var(--color-surface) 50%,
+    var(--color-surface-muted) 60%,
+    var(--color-surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
 }
 
 /* Lesson body text rendered from Markdown */
 .prose-lesson {
-  font-size: 1.0625rem;
-  line-height: 1.7;
+  font-size: var(--text-body-lg);
+  line-height: var(--text-body-lg--line-height);
+  color: var(--color-ink);
 }
 .prose-lesson p {
   margin: 0.75rem 0;
@@ -35,20 +221,37 @@ body {
 .prose-lesson li {
   margin: 0.25rem 0;
 }
+.prose-lesson li::marker {
+  color: var(--color-ink-muted);
+}
 .prose-lesson strong {
   font-weight: 650;
+}
+.prose-lesson em {
+  font-style: italic;
 }
 .prose-lesson h1,
 .prose-lesson h2,
 .prose-lesson h3 {
+  font-size: var(--text-h3);
+  line-height: var(--text-h3--line-height);
   font-weight: 700;
-  margin: 1rem 0 0.5rem;
+  margin: 1.25rem 0 0.5rem;
 }
 .prose-lesson code {
-  background: #f5f5f4;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-surface-muted);
   border-radius: 0.25rem;
   padding: 0 0.25rem;
 }
 .prose-lesson a {
+  color: var(--color-accent-strong);
   text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose-lesson blockquote {
+  border-left: 3px solid var(--color-line-strong);
+  padding-left: 0.75rem;
+  color: var(--color-ink-muted);
 }
