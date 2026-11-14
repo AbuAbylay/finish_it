@@ -6,6 +6,7 @@ import { Button } from "@/components/ui";
 import type { ChatTurn } from "@/lib/types";
 import { api } from "@/lib/client";
 import { lessonCopy as t } from "@/lib/copy/pages";
+import { Markdown } from "@/components/Markdown";
 
 export function SideChat({ lessonKey }: { lessonKey: string }) {
   const [open, setOpen] = useState(false);
@@ -47,7 +48,7 @@ export function SideChat({ lessonKey }: { lessonKey: string }) {
       <ul className="space-y-2" aria-live="polite">
         {history.map((m, i) => (
           <li key={i} className={`rounded-control p-3 text-body ${m.role === "user" ? "bg-surface-muted text-ink" : "border border-line text-ink"}`}>
-            {m.content}
+            {m.role === "assistant" ? <Markdown>{m.content}</Markdown> : m.content}
           </li>
         ))}
       </ul>

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { sideChat } from "@/ai";
 import { issues } from "@/lib/contracts";
 import { loadLesson } from "@/lib/db";
-import { HttpError, clientIp, context, json, readJson, route, spendGeneration } from "@/lib/server";
+import { HttpError, assertUnderCaps, clientIp, context, json, readJson, recordGeneration, route } from "@/lib/server";
 import { isAiError } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +21,14 @@ export const POST = route(async (req) => {
   if (!body.success) throw new HttpError(400, issues(body.error), "bad_request");
   const row = await loadLesson(body.data.lesson_key);
   if (!row || row.learner_id !== ctx.learnerId) throw new HttpError(404, "Lesson not found.", "not_found");
-  await spendGeneration(ctx.learnerId, clientIp(req), "chat");
-  const answer = await sideChat(row.lesson, row.order.unit.excerpt, body.data.history, body.data.question);
-  if (isAiError(answer)) throw new HttpError(502, answer.error, "ai_error");
+  await assertUnderCaps(ctx.learnerId, clientIp(req));
+  // Until the lesson is graded, the model never sees the questions or their answer key.
+  const lesson = row.result ? row.lesson : { ...row.lesson, quiz: [], review_quiz: [] };
+  const answer = await sideChat(lesson, row.order.unit.excerpt, body.data.history, body.data.question);
+  await recordGeneration(ctx.learnerId, clientIp(req), "chat", !isAiError(answer));
+  if (isAiError(answer)) {
+    console.error("sideChat failed:", answer.error, answer.detail ?? "");
+    throw new HttpError(502, answer.error, "ai_error");
+  }
   return json({ answer });
 });

@@ -225,8 +225,10 @@ export async function deleteLessonsOf(learnerId: string): Promise<void> {
 
 // --- generation log (cost caps) --------------------------------------------
 
+/** Counts logged model calls. With a learner or IP filter, failed calls are left out: they only count toward the global total. */
 export async function countGenerations(since: string, by: { learnerId?: string; ip?: string } = {}): Promise<number> {
   const where = ["created_at >= ?"];
+  if (by.learnerId || by.ip) where.push("kind != 'failed'");
   const args: string[] = [since];
   if (by.learnerId) {
     where.push("learner_id = ?");
@@ -240,7 +242,7 @@ export async function countGenerations(since: string, by: { learnerId?: string; 
   return Number(rs.rows[0].n);
 }
 
-export async function logGeneration(learnerId: string, ip: string, kind: "lesson" | "setup" | "chat"): Promise<void> {
+export async function logGeneration(learnerId: string, ip: string, kind: "lesson" | "setup" | "chat" | "failed"): Promise<void> {
   await (await db()).execute({
     sql: "INSERT INTO generations (learner_id, ip, kind, created_at) VALUES (?, ?, ?, ?)",
     args: [learnerId, ip, kind, nowIso()],

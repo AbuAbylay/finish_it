@@ -30,7 +30,7 @@ const LIMITS = {
   enterFailures: 10,
   enterTotal: 60,
   generateWindowMs: 60 * 60 * 1000,
-  generateTotal: 30,
+  generateTotal: Number(process.env.ID_CAP_PER_IP_HOUR) > 0 ? Number(process.env.ID_CAP_PER_IP_HOUR) : 30,
 };
 
 /** 20 random symbols x 5 bits = 100 bits, shown in groups of five: "k7m2q-x2pd9-fhwc4-tnr8b". */

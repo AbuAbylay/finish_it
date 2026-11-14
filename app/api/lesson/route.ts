@@ -5,14 +5,15 @@ import { assertLessonOpen, lockedError } from "@/lib/locks";
 import { canReread, lessonStateOf, pickNext, placementDone } from "@/lib/rules";
 import {
   HttpError,
+  assertUnderCaps,
   clientIp,
   context,
   json,
   lessonKey,
   presentLesson,
+  recordGeneration,
   requireSetUp,
   route,
-  spendGeneration,
 } from "@/lib/server";
 import { isAiError, type Order } from "@/lib/types";
 
@@ -23,16 +24,25 @@ export const maxDuration = 60;
 const inflight = new Map<string, Promise<LessonRow>>();
 
 async function generate(key: string, learnerId: string, ip: string, order: Order): Promise<LessonRow> {
-  await spendGeneration(learnerId, ip, "lesson");
+  await assertUnderCaps(learnerId, ip);
   const out = await writeLesson(order);
-  if (isAiError(out)) throw new HttpError(502, out.error || "The lesson could not be written. Please try again.", "ai_error");
+  if (isAiError(out)) {
+    console.error("writeLesson failed:", out.error, out.detail ?? "");
+    await recordGeneration(learnerId, ip, "lesson", false);
+    throw new HttpError(502, out.error || "The lesson could not be written. Please try again.", "ai_error");
+  }
   const parsed = parseLesson(out);
   if (!parsed.ok) {
-    console.error("lesson contract mismatch", parsed.error);
+    console.error("lesson contract mismatch:", parsed.error);
+    await recordGeneration(learnerId, ip, "lesson", false);
     throw new HttpError(502, "The lesson came back in an unexpected shape. Please try again.", "ai_error");
   }
+  await recordGeneration(learnerId, ip, "lesson", true);
   await saveLesson(key, learnerId, order, parsed.lesson);
-  return { lesson_key: key, learner_id: learnerId, order, lesson: parsed.lesson, result: null, answers: {} };
+  // Another server instance may have stored this lesson first (the insert keeps the first one).
+  // Always return the stored row, so the questions shown are the ones answers are graded against.
+  const stored = await loadLesson(key);
+  return stored ?? { lesson_key: key, learner_id: learnerId, order, lesson: parsed.lesson, result: null, answers: {} };
 }
 
 /**

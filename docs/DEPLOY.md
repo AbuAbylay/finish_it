@@ -11,7 +11,8 @@ Next.js 15 on Vercel with a Turso (libSQL) database. Push-to-deploy from GitHub 
 | `TURSO_DATABASE_URL` | yes | `libsql://…` |
 | `TURSO_AUTH_TOKEN` | yes | the Turso token |
 | `APP_URL` | recommended | the production URL, used for the link in reminder emails |
-| `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | once `ai/real.ts` is switched on | see docs/INTEGRATION.md |
+| `ANTHROPIC_API_KEY` | once `ai/real.ts` is switched on | see docs/INTEGRATION.md |
+| `ID_CAP_PER_IP_HOUR` | optional | new IDs per IP per hour, default 30; raise it for a venue where everyone shares one network |
 | `LESSON_CAP_PER_LEARNER`, `LESSON_CAP_PER_IP`, `LESSON_CAP_GLOBAL` | optional | defaults 25 / 150 / 1000 per 24 h |
 
 Without `TURSO_DATABASE_URL`, every API call on Vercel fails with a server error and `/api/health` returns 503. This is by design: there is no writable local database there.

@@ -108,6 +108,8 @@ export default function PlacementTest() {
     const res = await api<{ questions: PublicQuestion[] }>("/api/placement");
     if (!res.ok) return setError({ message: res.error, retry: load });
     setQuestions(res.data.questions);
+    // Every tested topic was skipped in the survey: nothing to ask, go straight to the plan.
+    if (res.data.questions.length === 0) return void submit();
     setDraft(loadDraft<Draft>("placement") ?? { step: 0, answers: {} });
   }
 

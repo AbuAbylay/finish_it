@@ -15,6 +15,9 @@ export interface ReminderVars {
   minutes: number;
   lessons_left: number;
   days_left: number;
+  /** The pace sentence, for example "On track. 6 lessons left, 10 study days to your exam (4 spare)." */
+  pace: string;
+  goal: string;
   link: string;
 }
 

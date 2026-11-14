@@ -1,6 +1,6 @@
 import { answersSchema, issues } from "@/lib/contracts";
 import { saveLearner } from "@/lib/db";
-import { gradePlacement } from "@/lib/rules";
+import { gradePlacement, placementDone } from "@/lib/rules";
 import { HttpError, context, json, publicQuestion, readJson, requireSetUp, route } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export const GET = route(async (req) => {
 /** Grades the short test and writes the initial unit statuses. Allowed until the first lesson is done. */
 export const POST = route(async (req) => {
   const ctx = requireSetUp(await context(req));
-  if (ctx.record.sessions.length > 0) throw new HttpError(409, "The short test is only taken once, before the first lesson.", "already_started");
+  if (placementDone(ctx.record)) throw new HttpError(409, "The short test is only taken once.", "already_done");
   const body = (await readJson(req)) as { answers?: unknown };
   const answers = answersSchema.safeParse(body.answers ?? {});
   if (!answers.success) throw new HttpError(400, `Invalid answers: ${issues(answers.error)}`, "bad_answers");

@@ -37,7 +37,7 @@ export function validatePlan(plan: CoursePlan, materialText: string): Validation
 export function validateLesson(lesson: Lesson, order: Order): ValidationResult;
 ```
 
-- `AiError` is `{ error: string; detail?: string }`. Return it after the one failed retry. `error` is shown to the learner next to a retry button, so write it for them (for example "The lesson could not be written. Please try again."). Put technical detail in `detail`; it is logged, not shown.
+- `AiError` is `{ error: string; detail?: string }`. Return it after the one failed retry. `error` is shown to the learner next to a retry button, so write it for them (for example "The lesson could not be written. Please try again."). Put technical detail in `detail`; it is written to the server log, not shown.
 - `ValidationResult` is `{ ok: boolean; errors: string[] }`. Run the validators inside `setupCourse` and `writeLesson`, before the app sees the output (SAGYNDYK-AI.md "Validator").
 - Never throw for model or validation failures; return an `AiError`. A thrown error becomes a generic 500.
 
@@ -47,7 +47,8 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult;
 - **Second guard.** The app re-checks every output against the §4 shapes (`lib/contracts.ts`): 4 options, `correct_index` 0 to 3, unique question ids, at least one section, at least one quiz question. A mismatch is treated like an `AiError`.
 - **Answers stay hidden.** The browser gets questions without `correct_index`, `explanation` or `source_quote`. Each answer is revealed only after that question is answered, through `POST /api/answers/check`.
 - **Caching.** One lesson per learner, plan, unit, mode, minutes, review concepts and attempt number. A refresh never calls the model again.
-- **Cost caps** over a rolling 24 hours (env, defaults): `LESSON_CAP_PER_LEARNER=25`, `LESSON_CAP_PER_IP=150`, `LESSON_CAP_GLOBAL=1000`. They count lesson, setup and chat calls.
+- **Cost caps** over a rolling 24 hours (env, defaults): `LESSON_CAP_PER_LEARNER=25`, `LESSON_CAP_PER_IP=150`, `LESSON_CAP_GLOBAL=1000`. They count lesson, setup and chat calls. A call that returns an `AiError` counts only toward the global cap, so a failing model cannot lock one learner or one network out.
+- **Side chat.** Until the lesson is graded, `sideChat` receives the lesson without `quiz` and `review_quiz`, so it cannot reveal answers.
 - **Time limits.** `/api/lesson` and `/api/course` allow 60 s, `/api/chat` 30 s (`maxDuration`).
 
 ## Environment variables
@@ -56,11 +57,11 @@ Server only, never in the browser and never committed (`.env*` is ignored).
 
 | Variable | Use |
 |---|---|
-| `GEMINI_API_KEY` | Setup call |
-| `ANTHROPIC_API_KEY` | Lesson call and side chat |
-| `SETUP_MODEL` | Default `gemini-3.8-flash` |
+| `ANTHROPIC_API_KEY` | All three calls: setup, lesson, side chat |
+| `SETUP_MODEL` | Default `claude-haiku-5-5` |
 | `LESSON_MODEL` | Default `claude-sonnet-5-5` |
 | `CHAT_MODEL` | Default `claude-haiku-5-5` |
+| `SETUP_EFFORT`, `LESSON_EFFORT` | Defaults `low` and `medium` |
 
 Set them in Vercel (Project → Settings → Environment Variables) and in `.env.local` for local runs. `.env.example` lists every variable.
 
@@ -73,7 +74,7 @@ Set them in Vercel (Project → Settings → Environment Variables) and in `.env
 }
 ```
 
-A variant may also be a single string whose first line is `Subject: …`. Variables: `{course_title}`, `{unit_title}`, `{minutes}`, `{lessons_left}`, `{days_left}`, `{link}`. A missing blocker falls back to `other`.
+A variant may also be a single string whose first line is `Subject: …`. Variables: `{course_title}`, `{unit_title}`, `{minutes}`, `{lessons_left}`, `{days_left}`, `{pace}` (the pace sentence), `{goal}`, `{link}`. `tests/reminders.test.ts` renders all ten variants and fails on any placeholder left unfilled. A missing blocker falls back to `other`.
 
 ## Checking your output before the switch
 

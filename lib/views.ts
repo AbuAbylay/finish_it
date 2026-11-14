@@ -1,5 +1,6 @@
 // Read models for the plan page and the reminder preview, built from the record with the §5 rules.
 import "server-only";
+import { copy } from "./content";
 import { addDays, weekdayOf } from "./dates";
 import { renderReminder, type Email } from "./reminders";
 import {
@@ -9,9 +10,19 @@ import {
   pace,
   pickNext,
   reminderToday,
+  type Pace,
   type ReminderType,
 } from "./rules";
 import { WEEKDAYS, type CoursePlan, type LearnerRecord, type Profile } from "./types";
+
+/** The pace sentence as shown on the plan page (wording in lib/content.ts). */
+function paceText(p: Pace): string {
+  if (p.lessons_left === 0) return copy.pace.finished;
+  const spare = p.days_left - p.lessons_left;
+  if (p.on_track && spare > 0) return copy.pace.onTrackSpare(p.lessons_left, p.days_left, spare);
+  if (p.on_track) return copy.pace.onTrackExact;
+  return copy.pace.behind(p.behind_by, p.lessons_left, p.days_left);
+}
 
 type SetUp = { record: LearnerRecord & { profile: Profile }; plan: CoursePlan; today: string };
 
@@ -67,6 +78,8 @@ export async function reminderView({ record, plan, today }: SetUp, link: string)
     unit_title: unitTitle,
     lessons_left: p.lessons_left,
     days_left: p.days_left,
+    pace: paceText(p),
+    goal: record.profile.goal,
     link,
   };
   const minutes: Record<ReminderType, number> = {

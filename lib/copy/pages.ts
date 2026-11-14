@@ -37,7 +37,7 @@ export const enterCopy = {
   continueLesson: "Continue today's lesson",
   continueSetup: "Continue where you left off",
   startOver: "Start over",
-  creditSampleReal: "Sample course: Project Management, 2nd Edition by Adrienne Watt, BCcampus, CC BY 4.0.",
+  creditSampleReal: "Sample course: original study notes written for this project; not official PMI material.",
   creditSampleDev: "Sample course: original text written for this demo.",
   creditMethod: "Teaching method adapted from Matt Pocock's teach skill (MIT).",
 } as const;

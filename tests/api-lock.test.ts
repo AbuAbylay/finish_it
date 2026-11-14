@@ -169,3 +169,39 @@ describe("locked lessons over the API", () => {
     expect(after).toEqual(before);
   });
 });
+
+describe("short test", () => {
+  it("is graded once: a second submission with the revealed answers is refused", async () => {
+    const again = await learner.call(r.placement.POST, "/api/placement", { method: "POST", body: { answers: {} } });
+    expect(again.status).toBe(409);
+    expect(again.data.code).toBe("already_done");
+  });
+
+  it("skipping every topic in the survey leaves no dead end: no questions, and an empty submission finishes setup", async () => {
+    const c = new Client("10.0.0.9");
+    await c.call(r.generate, "/api/identity/generate", { method: "POST" });
+    const me = await c.call<MeResponse>(r.me, "/api/me");
+    await c.call(r.profile, "/api/profile", {
+      method: "POST",
+      body: {
+        profile: {
+          course_title: "PMP exam prep",
+          goal: "Move into a project manager role",
+          success: "Pass the PMP exam on the first attempt",
+          focus: [],
+          skip: me.data.course!.units.map((u) => u.title),
+          minutes_per_day: 15,
+          study_days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+          deadline: addDays(me.data.today, 14),
+          prior_knowledge: "Leads projects, self-taught, no formal training",
+          blocker: "time",
+          blocker_note: "",
+        },
+      },
+    });
+    const q = await c.call<{ questions: unknown[] }>(r.placement.GET, "/api/placement");
+    expect(q.data.questions).toEqual([]);
+    expect((await c.call(r.placement.POST, "/api/placement", { method: "POST", body: { answers: {} } })).status).toBe(200);
+    expect((await c.call<MeResponse>(r.me, "/api/me")).data.stage).toBe("done");
+  });
+});

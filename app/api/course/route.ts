@@ -3,7 +3,7 @@ import { parseCoursePlan } from "@/lib/contracts";
 import { contentId, samplePlan } from "@/lib/course";
 import { savePlan, saveLearner } from "@/lib/db";
 import { newRecord, startCourse } from "@/lib/rules";
-import { HttpError, clientIp, context, json, readJson, route, spendGeneration } from "@/lib/server";
+import { HttpError, assertUnderCaps, clientIp, context, json, readJson, recordGeneration, route } from "@/lib/server";
 import { isAiError } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,11 +37,18 @@ export const POST = route(async (req) => {
     const text = typeof body.text === "string" ? body.text.trim() : "";
     if (text.length < 500) throw new HttpError(400, "Paste at least a few paragraphs of your course.", "too_short");
     if (text.length > MAX_UPLOAD_CHARS) throw new HttpError(413, "That is more text than we can handle in one go.", "too_long");
-    await spendGeneration(ctx.learnerId, clientIp(req), "setup");
+    await assertUnderCaps(ctx.learnerId, clientIp(req));
     const result = await setupCourse(text, record.profile);
-    if (isAiError(result)) throw new HttpError(502, result.error, "ai_error");
-    const parsed = parseCoursePlan(result);
-    if (!parsed.ok) throw new HttpError(502, "The course plan came back in an unexpected shape. Please try again.", "ai_error");
+    const parsed = isAiError(result) ? null : parseCoursePlan(result);
+    await recordGeneration(ctx.learnerId, clientIp(req), "setup", !!parsed?.ok);
+    if (isAiError(result)) {
+      console.error("setupCourse failed:", result.error, result.detail ?? "");
+      throw new HttpError(502, result.error, "ai_error");
+    }
+    if (!parsed?.ok) {
+      console.error("course plan contract mismatch:", parsed?.error);
+      throw new HttpError(502, "The course plan came back in an unexpected shape. Please try again.", "ai_error");
+    }
     id = contentId("upload", JSON.stringify(parsed.plan));
     title = parsed.plan.title;
     await savePlan(id, parsed.plan);

@@ -16,7 +16,16 @@ vi.mock("server-only", () => ({}));
 
 const LIVE = process.env.AI_CONTRACT_LIVE === "1";
 const isReal = active.writeLesson !== stub.writeLesson;
-const flat = (t: string) => t.replace(/\s+/g, " ").trim();
+/** Same normalisation as the AI layer's validator: NFKC, lower case, one style of quotes and dashes, single spaces. */
+const flat = (t: string) =>
+  t
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\u2018\u2019\u201a\u201b]/g, "'")
+    .replace(/[\u201c\u201d\u201e\u201f]/g, '"')
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
 const root = path.resolve(__dirname, "..");
 
 const materialFile = existsSync(path.join(root, "sample/course.txt")) ? "sample/course.txt" : "sample/dev-course.txt";
@@ -30,6 +39,13 @@ function expectQuestion(q: Question, excerpt: string, where: string) {
   expect(q.source_quote.trim().length, `${where}: source_quote present`).toBeGreaterThan(0);
   expect(flat(excerpt).includes(flat(q.source_quote)), `${where}: source_quote is in the excerpt`).toBe(true);
   expect(q.concept.trim().length, `${where}: concept present`).toBeGreaterThan(0);
+  // The correct option must not stand out by length: its length against the mean of the other three
+  // must stay within 0.5 to 1.5. Skipped for short options (none of 20 characters or more).
+  if (q.options.some((o) => o.length >= 20)) {
+    const others = q.options.filter((_, i) => i !== q.correct_index);
+    const ratio = q.options[q.correct_index].length / (others.reduce((n, o) => n + o.length, 0) / others.length);
+    expect(ratio > 0.5 && ratio < 1.5, `${where}: correct option length ratio ${ratio.toFixed(2)} is outside 0.5 to 1.5`).toBe(true);
+  }
 }
 
 export function expectValidPlan(plan: unknown, materialText: string) {

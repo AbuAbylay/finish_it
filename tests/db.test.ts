@@ -68,6 +68,11 @@ describe("storage", () => {
     expect(await countGenerations(since, { learnerId: "l1" })).toBe(1);
     expect(await countGenerations(since, { ip: "1.1.1.1" })).toBe(2);
     expect(await countGenerations(since)).toBe(2);
+    // A failed model call counts toward the global total only, so it cannot lock a learner or a network out.
+    await logGeneration("l1", "1.1.1.1", "failed");
+    expect(await countGenerations(since, { learnerId: "l1" })).toBe(1);
+    expect(await countGenerations(since, { ip: "1.1.1.1" })).toBe(2);
+    expect(await countGenerations(since)).toBe(3);
   });
 });
 

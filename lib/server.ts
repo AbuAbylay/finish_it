@@ -54,8 +54,12 @@ const cap = (name: string, fallback: number) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-/** Throws a friendly 429 when a learner, an IP or the whole app is over its rolling 24-hour cap. Logs the call otherwise. */
-export async function spendGeneration(learnerId: string, ip: string, kind: "lesson" | "setup" | "chat"): Promise<void> {
+/**
+ * Throws a friendly 429 when a learner, an IP or the whole app is over its rolling 24-hour cap.
+ * Learner and IP caps count successful calls only, so a failing model cannot lock a juror or a
+ * shared network out. The global cap counts every attempt, which still bounds total spend.
+ */
+export async function assertUnderCaps(learnerId: string, ip: string): Promise<void> {
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const [byLearner, byIp, total] = await Promise.all([
     countGenerations(since, { learnerId }),
@@ -68,7 +72,11 @@ export async function spendGeneration(learnerId: string, ip: string, kind: "less
   if (total >= cap("LESSON_CAP_GLOBAL", 1000)) {
     throw new HttpError(429, "The demo has reached its daily limit for new lessons. Your progress is saved; please try again later.", "rate_limited");
   }
-  await logGeneration(learnerId, ip, kind);
+}
+
+/** Logs one model call after it returns: its kind on success, "failed" otherwise. */
+export async function recordGeneration(learnerId: string, ip: string, kind: "lesson" | "setup" | "chat", ok: boolean): Promise<void> {
+  await logGeneration(learnerId, ip, ok ? kind : "failed");
 }
 
 // --- lessons ----------------------------------------------------------------

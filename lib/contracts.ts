@@ -38,7 +38,7 @@ const lessonSchema = z.object({
   title: z.string().min(1),
   sections: z.array(z.object({ heading: z.string(), body_md: z.string(), source_quote: z.string() })).min(1),
   key_points: z.array(z.string()),
-  quiz: z.array(questionSchema).min(1),
+  quiz: z.array(questionSchema).length(3),
   review_quiz: z.array(questionSchema),
 });
 
