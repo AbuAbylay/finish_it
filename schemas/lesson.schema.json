@@ -1,0 +1,125 @@
+{
+  "type": "object",
+  "properties": {
+    "unit_id": {
+      "type": "string",
+      "description": "Copied from ORDER.unit.unit_id"
+    },
+    "title": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "description": "Two to four short sections; total words at most (ORDER.minutes - 4) x 60",
+      "items": {
+        "type": "object",
+        "properties": {
+          "heading": {
+            "type": "string"
+          },
+          "body_md": {
+            "type": "string",
+            "description": "Explanation in Markdown"
+          },
+          "source_quote": {
+            "type": "string",
+            "description": "Copied word for word from ORDER.unit.excerpt"
+          }
+        },
+        "required": ["heading", "body_md", "source_quote"],
+        "additionalProperties": false
+      }
+    },
+    "key_points": {
+      "type": "array",
+      "description": "At most three one-line points",
+      "items": {
+        "type": "string"
+      }
+    },
+    "quiz": {
+      "type": "array",
+      "description": "Exactly 3 questions on ORDER.unit that make the learner apply the idea",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "description": "unit_id, a dash, then q1, q2 or q3"
+          },
+          "concept": {
+            "type": "string",
+            "description": "Short name of the idea tested, two to five words"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "description": "Exactly 4 options of the same length and form",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correct_index": {
+            "type": "integer",
+            "enum": [0, 1, 2, 3]
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Why the correct option is correct, one or two sentences"
+          },
+          "source_quote": {
+            "type": "string",
+            "description": "Copied word for word from ORDER.unit.excerpt"
+          }
+        },
+        "required": ["question_id", "concept", "prompt", "options", "correct_index", "explanation", "source_quote"],
+        "additionalProperties": false
+      }
+    },
+    "review_quiz": {
+      "type": "array",
+      "description": "One question per entry in ORDER.review_concepts, in the same order; empty when there are none",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "description": "The review concept's unit_id, a dash, then r1, r2 and so on"
+          },
+          "concept": {
+            "type": "string",
+            "description": "Copied from the matching entry in ORDER.review_concepts"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "description": "Exactly 4 options of the same length and form",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correct_index": {
+            "type": "integer",
+            "enum": [0, 1, 2, 3]
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Why the correct option is correct, one or two sentences"
+          },
+          "source_quote": {
+            "type": "string",
+            "description": "Copied word for word from that review concept's excerpt"
+          }
+        },
+        "required": ["question_id", "concept", "prompt", "options", "correct_index", "explanation", "source_quote"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["unit_id", "title", "sections", "key_points", "quiz", "review_quiz"],
+  "additionalProperties": false
+}

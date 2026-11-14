@@ -1,0 +1,71 @@
+{
+  "unit_id": "u01",
+  "title": "What a Project Is",
+  "sections": [
+    {
+      "heading": "Project or operations?",
+      "body_md": "You already coordinate projects, so here is the formal line. A **project** is temporary and produces something unique. **Operations** are ongoing and repeat the same work.\n\nTwo tests:\n1. Does the work have an end date that matters?\n2. Does finishing it create something new?\n\nTwo yeses means a project.\n\n**Example for your PM goal:** A clinic books patients every morning. That is operations. Replacing the appointment book with an online system is a project. Once it is live and handed to the front desk, daily use becomes operations again.",
+      "source_quote": "Two quick tests tell a project from operations."
+    },
+    {
+      "heading": "Scope, time and cost",
+      "body_md": "Every project is held by three linked constraints:\n- **Scope**: what it will deliver.\n- **Time**: how long it may take.\n- **Cost**: how much may be spent.\n\nMove one and the others feel it. If the clinic adds text-message reminders, expect more time, more money or both. If the deadline moves two weeks earlier, scope shrinks or cost rises. Quality sits in the middle, and squeezing all three weakens the result.",
+      "source_quote": "Changing one of the three puts pressure on the other two."
+    },
+    {
+      "heading": "Where a project formally begins",
+      "body_md": "A project starts with a **charter**: a short document approved by a **sponsor**. It authorizes the project and gives the manager authority over people and money. The sponsor provides funding and backs the project when decisions go above the manager's level.\n\nIn the clinic, the director is the sponsor. Until the charter is signed, Dana has only an idea and a request. As a future PM, you would want that signature first.",
+      "source_quote": "A project begins formally with a project charter."
+    }
+  ],
+  "key_points": [
+    "Project = temporary effort with a unique result; operations = ongoing repeated work.",
+    "Scope, time and cost are linked: change one and the others are pressured.",
+    "A signed charter from the sponsor is what formally starts a project."
+  ],
+  "quiz": [
+    {
+      "question_id": "u01-q1",
+      "concept": "Project versus operations",
+      "prompt": "A bakery bakes the same bread every dawn. It then decides to design and launch a new online ordering process, finishing by June. Which statement is right?",
+      "options": [
+        "Both the baking and the launch are projects",
+        "The baking is operations; the launch is a project",
+        "The baking is a project; the launch is operations",
+        "Neither is a project because both involve work"
+      ],
+      "correct_index": 1,
+      "explanation": "Daily baking repeats the same work, so it is operations. The online ordering launch has an end date and creates something new, so it is a project.",
+      "source_quote": "If both answers are yes, it is a project."
+    },
+    {
+      "question_id": "u01-q2",
+      "concept": "Linked constraints",
+      "prompt": "Your sponsor asks you to finish a project three weeks earlier without changing the budget. According to the linked constraints, what must give?",
+      "options": [
+        "The scope may shrink to fit the time",
+        "The cost will fall by itself as time falls",
+        "Nothing needs to change at all",
+        "The sponsor must approve a new charter"
+      ],
+      "correct_index": 0,
+      "explanation": "Moving the deadline earlier means either scope shrinks or cost rises. With cost fixed, scope has to shrink.",
+      "source_quote": "If the deadline moves two weeks earlier, either the scope shrinks or the cost rises."
+    },
+    {
+      "question_id": "u01-q3",
+      "concept": "Charter and sponsor",
+      "prompt": "You have a great idea for a new intake process and a team ready to start, but the director has not signed anything. What is your status?",
+      "options": [
+        "You hold an approved project already running",
+        "You hold an idea and a request, not a project",
+        "You hold a project that is now operations",
+        "You hold full authority over people and money"
+      ],
+      "correct_index": 1,
+      "explanation": "A project formally begins only when the sponsor approves the charter. Until then there is only an idea and a request.",
+      "source_quote": "Until the director signs the charter, Dana has an idea and a request, but she does not yet have a project"
+    }
+  ],
+  "review_quiz": []
+}

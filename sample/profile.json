@@ -1,0 +1,13 @@
+{
+  "course_title": "PMP exam prep",
+  "goal": "Move into a project manager role this spring",
+  "success": "Pass the PMP exam on the first attempt",
+  "focus": ["risk management", "agile"],
+  "skip": ["history of project management"],
+  "minutes_per_day": 15,
+  "study_days": ["mon", "tue", "wed", "thu", "sat"],
+  "deadline": "2027-02-20",
+  "prior_knowledge": "Two years coordinating projects, no formal training",
+  "blocker": "time",
+  "blocker_note": "Evenings disappear after the kids are asleep"
+}
