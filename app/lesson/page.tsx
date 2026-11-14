@@ -82,9 +82,12 @@ export default function LessonPage() {
 
   function choose(id: string, index: number) {
     if (!data || result) return;
-    const next = { ...answers, [id]: index };
-    setAnswers(next);
-    saveDraft(`lesson_${data.lesson_key}`, next);
+    const draftKey = `lesson_${data.lesson_key}`;
+    setAnswers((prev) => {
+      const next = { ...prev, [id]: index };
+      saveDraft(draftKey, next);
+      return next;
+    });
   }
 
   async function submit() {

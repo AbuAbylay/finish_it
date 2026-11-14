@@ -33,9 +33,11 @@ export default function PlacementTest() {
   }, [me]);
 
   function choose(id: string, index: number) {
-    const next = { ...answers, [id]: index };
-    setAnswers(next);
-    saveDraft("placement", next);
+    setAnswers((prev) => {
+      const next = { ...prev, [id]: index };
+      saveDraft("placement", next);
+      return next;
+    });
   }
 
   async function submit() {

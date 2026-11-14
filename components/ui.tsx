@@ -36,12 +36,15 @@ export function Chip({
   onClick,
   children,
   tone = "default",
+  compact = false,
   className = "",
 }: {
   selected: boolean;
   onClick: () => void;
   children: ReactNode;
   tone?: "default" | "skip";
+  /** Narrow centered chip, for grids like weekdays. */
+  compact?: boolean;
   className?: string;
 }) {
   const on = tone === "skip" ? "border-stone-400 bg-stone-200 text-stone-500 line-through" : "border-emerald-700 bg-emerald-50 text-emerald-900";
@@ -50,7 +53,7 @@ export function Chip({
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-12 rounded-xl border px-4 py-2 text-left text-base transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${selected ? on : "border-stone-300 bg-white text-stone-800 hover:border-stone-400"} ${className}`}
+      className={`min-h-12 rounded-xl border py-2 text-base transition-colors ${compact ? "px-1 text-center" : "px-4 text-left"} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${selected ? on : "border-stone-300 bg-white text-stone-800 hover:border-stone-400"} ${className}`}
     >
       {children}
     </button>

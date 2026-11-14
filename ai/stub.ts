@@ -41,8 +41,9 @@ function cloze(id: string, sentence: string, pool: string[], concept?: string): 
   const candidates = words(sentence);
   const answer = candidates.reduce((a, b) => (b.length > a.length ? b : a), candidates[0] ?? "project");
   const lower = answer.toLowerCase();
-  const distractors = [...new Set([...pool, ...FALLBACK_WORDS])]
-    .filter((w) => w.toLowerCase() !== lower)
+  const unique = new Map([...pool, ...FALLBACK_WORDS].map((w) => [w.toLowerCase(), w]));
+  unique.delete(lower);
+  const distractors = [...unique.values()]
     .sort((a, b) => Math.abs(a.length - answer.length) - Math.abs(b.length - answer.length) || hash(a + id) - hash(b + id))
     .slice(0, 3);
   const correct_index = hash(id + sentence) % 4;
@@ -54,7 +55,7 @@ function cloze(id: string, sentence: string, pool: string[], concept?: string): 
     prompt: `Fill the gap: “${sentence.replace(answer, "_____")}”`,
     options,
     correct_index,
-    explanation: `Your course says: “${sentence}”`,
+    explanation: `The course uses “${answer}” in this sentence.`,
     source_quote: sentence,
   };
 }

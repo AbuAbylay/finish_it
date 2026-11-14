@@ -176,7 +176,7 @@ export default function Survey() {
       <p className="text-sm font-semibold text-stone-700">{s.q5.minutesLabel}</p>
       <div className="grid grid-cols-4 gap-2">
         {s.q5.minutes.map((m) => (
-          <Chip key={m} selected={d.minutes === m} onClick={() => set({ minutes: m })} className="text-center">
+          <Chip key={m} selected={d.minutes === m} onClick={() => set({ minutes: m })} compact>
             {m}
           </Chip>
         ))}
@@ -189,7 +189,8 @@ export default function Survey() {
             <Chip
               key={day}
               selected={on}
-              className="px-0 text-center text-sm"
+              compact
+              className="text-sm"
               onClick={() => {
                 const days = on ? d.days.filter((x) => x !== day) : WEEKDAYS.filter((x) => x === day || d.days.includes(x));
                 if (days.length > 0) set({ days });

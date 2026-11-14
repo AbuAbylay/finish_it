@@ -18,7 +18,7 @@ export function Shell({ children, nav = false, demoOffset = 0 }: { children: Rea
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-2xl items-center justify-between gap-2 px-4">
-          <Link href="/" className="flex items-center gap-2 font-bold tracking-tight text-stone-900">
+          <Link href="/" className="flex min-h-11 items-center gap-2 font-bold tracking-tight text-stone-900">
             <span className="grid h-7 w-7 place-items-center rounded-lg bg-emerald-700 text-sm text-white" aria-hidden>
               ✓
             </span>
