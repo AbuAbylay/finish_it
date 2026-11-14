@@ -1,63 +1,13 @@
-// Shared plumbing for API routes: learner identity, the learner's today(), errors, cost caps, presenters.
+// Shared plumbing for API routes: request context, the learner's today(), cost caps, presenters.
 import "server-only";
 import { createHash } from "node:crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { today } from "./dates";
 import { countGenerations, loadLearner, loadPlan, logGeneration } from "./db";
-import type { LessonResult } from "./rules";
+import { HttpError } from "./http";
+import { resolveLearner } from "./identity";
+import { checkAnswer, type LessonResult, type QuestionResult } from "./rules";
 import type { CoursePlan, LearnerRecord, Lesson, Order, Question } from "./types";
-
-export class HttpError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-    public code = "error",
-  ) {
-    super(message);
-  }
-}
-
-export function json(data: unknown, status = 200): NextResponse {
-  return NextResponse.json(data, { status, headers: { "cache-control": "no-store" } });
-}
-
-/** Wraps a route handler so every failure comes back as a JSON error object the page can show. */
-export function route(handler: (req: NextRequest) => Promise<Response>) {
-  return async (req: NextRequest): Promise<Response> => {
-    try {
-      return await handler(req);
-    } catch (err) {
-      if (err instanceof HttpError) return json({ error: err.message, code: err.code }, err.status);
-      console.error(err);
-      return json({ error: "Something went wrong on our side. Please try again.", code: "server_error" }, 500);
-    }
-  };
-}
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-export function learnerIdOf(req: NextRequest): string {
-  const id = req.headers.get("x-learner-id") ?? "";
-  if (!UUID.test(id)) throw new HttpError(400, "Missing or invalid learner id.", "bad_learner");
-  return id.toLowerCase();
-}
-
-export function timeZoneOf(req: NextRequest): string {
-  const tz = req.headers.get("x-timezone") ?? "UTC";
-  return /^[A-Za-z_+\-/0-9]{1,64}$/.test(tz) ? tz : "UTC";
-}
-
-export function clientIp(req: NextRequest): string {
-  return (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "unknown";
-}
-
-export async function readJson(req: NextRequest): Promise<unknown> {
-  try {
-    return await req.json();
-  } catch {
-    throw new HttpError(400, "The request body is not valid JSON.", "bad_json");
-  }
-}
 
 export interface Ctx {
   learnerId: string;
@@ -68,8 +18,22 @@ export interface Ctx {
   timeZone: string;
 }
 
+export { HttpError, clientIp, json, readJson, route } from "./http";
+
+export function timeZoneOf(req: NextRequest): string {
+  const tz = req.headers.get("x-timezone") ?? "UTC";
+  return /^[A-Za-z_+\-/0-9]{1,64}$/.test(tz) ? tz : "UTC";
+}
+
+/** An opaque per-learner key the browser may use for drafts and stable option shuffles. Not the ID. */
+export function clientKey(learnerId: string): string {
+  return createHash("sha256").update(`client:${learnerId}`).digest("hex").slice(0, 16);
+}
+
+/** Request context for a signed-in learner. Throws 401 when signed out. */
 export async function context(req: NextRequest): Promise<Ctx> {
-  const learnerId = learnerIdOf(req);
+  const learnerId = await resolveLearner(req);
+  if (!learnerId) throw new HttpError(401, "Enter your ID to continue.", "signed_out");
   const timeZone = timeZoneOf(req);
   const record = await loadLearner(learnerId);
   const plan = record?.course_plan_id ? await loadPlan(record.course_plan_id) : null;
@@ -124,7 +88,17 @@ export function publicQuestion(q: Question): PublicQuestion {
   return { question_id: q.question_id, concept: q.concept, prompt: q.prompt, options: q.options };
 }
 
-export function presentLesson(key: string, order: Order, lesson: Lesson, result: LessonResult | null) {
+/** Feedback for questions already answered: from the result once graded, else from answers checked one at a time. */
+function checkedOf(lesson: Lesson, result: LessonResult | null, answers: Record<string, number>): Record<string, QuestionResult> {
+  if (result) return Object.fromEntries([...result.quiz, ...result.review_quiz].map((r) => [r.question_id, r]));
+  const out: Record<string, QuestionResult> = {};
+  for (const q of [...lesson.quiz, ...lesson.review_quiz]) {
+    if (q.question_id in answers) out[q.question_id] = checkAnswer(q, answers[q.question_id]);
+  }
+  return out;
+}
+
+export function presentLesson(key: string, order: Order, lesson: Lesson, result: LessonResult | null, answers: Record<string, number> = {}) {
   return {
     lesson_key: key,
     order: {
@@ -142,6 +116,7 @@ export function presentLesson(key: string, order: Order, lesson: Lesson, result:
       quiz: lesson.quiz.map(publicQuestion),
       review_quiz: lesson.review_quiz.map(publicQuestion),
     },
+    checked: checkedOf(lesson, result, answers),
     result,
   };
 }
