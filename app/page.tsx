@@ -12,6 +12,7 @@ import { useGate } from "@/components/useGate";
 import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse } from "@/lib/api-types";
 import { api } from "@/lib/client";
+import { copy } from "@/lib/content";
 import { homeCopy as h, paceSentence } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
@@ -61,6 +62,8 @@ export default function Home() {
   const pace = plan ? paceSentence(plan.pace) : null;
   const behind = plan ? !plan.pace.on_track && plan.pace.lessons_left > 0 : false;
   const pct = plan ? Math.round((plan.units_done / Math.max(plan.units_total, 1)) * 100) : 0;
+  // A session of 25 minutes or more is two short lessons: after the first, today is not done yet.
+  const oneMore = plan ? plan.session.lessons_in_session === 2 && plan.session.lessons_done_today === 1 : false;
 
   return (
     <AppShell me={me} title={h.title}>
@@ -89,11 +92,11 @@ export default function Home() {
                   {plan.studied_today && (
                     <p className="flex items-center gap-2 text-body font-semibold text-accent-strong">
                       <Icon name="check-circle" />
-                      {h.doneToday}
+                      {oneMore ? copy.session.oneMore(1, plan.session.lessons_in_session) : h.doneToday}
                     </p>
                   )}
-                  <Link href="/lesson" className={plan.studied_today ? secondaryLink : primaryLink}>
-                    {plan.studied_today ? h.another : h.start}
+                  <Link href="/lesson" className={plan.studied_today && !oneMore ? secondaryLink : primaryLink}>
+                    {oneMore ? copy.session.startNext(2, plan.session.lessons_in_session) : plan.studied_today ? h.another : h.start}
                     <Icon name="arrow-right" />
                   </Link>
                 </>

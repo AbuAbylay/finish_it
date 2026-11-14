@@ -72,7 +72,8 @@ function deadlineOf(d: Draft, me: MeResponse): string {
 
 function toProfile(d: Draft, me: MeResponse): Profile {
   return {
-    course_title: s.q1.options[0].value,
+    // The learner's own course keeps the title its plan was given; the sample keeps the one from COPY.md.
+    course_title: me.sample === null && me.course ? me.course.title : s.q1.options[0].value,
     goal: d.goal,
     success: d.success,
     focus: d.focus,
@@ -183,9 +184,9 @@ export default function Survey() {
   };
 
   const steps: ReactNode[] = [
-    <Question key="q1" title={s.q1.question} help={s.q1.note}>
+    <Question key="q1" title={s.q1.question} help={me.sample === null ? s.q1.ownNote : undefined}>
       <Chip selected onClick={() => undefined}>
-        {s.q1.options[0].label}
+        {me.sample === null && me.course ? me.course.title : s.q1.options[0].label}
       </Chip>
     </Question>,
     <Question key="q2" title={s.q2.question}>

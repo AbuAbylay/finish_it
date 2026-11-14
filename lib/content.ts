@@ -20,7 +20,7 @@ export const copy = {
     q1: {
       question: "What are you studying for?",
       options: [{ label: "PMP exam prep (sample course)", value: "PMP exam prep" }],
-      note: "More courses, and your own uploads, come next.",
+      ownNote: "Built from the course text you added.",
     },
     q2: {
       question: "Why does this certification matter to you?",
@@ -114,6 +114,20 @@ export const copy = {
     start: "Start today's lesson",
     allKnown: "You already know every topic, so there is nothing left to study before your exam.",
     finishLine: "See your finish line",
+  },
+
+  // Not in COPY.md: the time chooser at the start of a session and the two-lesson session labels. For Al-Farabi's review.
+  session: {
+    title: "How much time do you have today?",
+    sub: "Today's lesson is sized to fit.",
+    groupLabel: "Minutes today",
+    oneLesson: (minutes: number) => `One lesson, about ${minutes} minutes.`,
+    twoLessons: (each: number) => `Two short lessons, about ${each} minutes each.`,
+    start: "Start the lesson",
+    saving: "Saving…",
+    lessonOf: (n: number, total: number) => `Lesson ${n} of ${total} today`,
+    oneMore: (done: number, total: number) => `Lesson ${done} of ${total} done today. One more short lesson to go.`,
+    startNext: (n: number, total: number) => `Start lesson ${n} of ${total}`,
   },
 
   pace: {

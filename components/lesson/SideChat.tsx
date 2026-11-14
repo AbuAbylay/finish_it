@@ -8,6 +8,9 @@ import { api } from "@/lib/client";
 import { lessonCopy as t } from "@/lib/copy/pages";
 import { Markdown } from "@/components/Markdown";
 
+/** The model gets the last few turns; the page keeps the whole conversation on screen. */
+const RECENT_TURNS = 12;
+
 export function SideChat({ lessonKey }: { lessonKey: string }) {
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<ChatTurn[]>([]);
@@ -21,7 +24,7 @@ export function SideChat({ lessonKey }: { lessonKey: string }) {
     if (!q || busy) return;
     setBusy(true);
     setError(null);
-    const res = await api<{ answer: string }>("/api/chat", { method: "POST", body: { lesson_key: lessonKey, question: q, history } });
+    const res = await api<{ answer: string }>("/api/chat", { method: "POST", body: { lesson_key: lessonKey, question: q, history: history.slice(-RECENT_TURNS) } });
     setBusy(false);
     if (!res.ok) return setError(res.error);
     setHistory([...history, { role: "user", content: q }, { role: "assistant", content: res.data.answer }]);

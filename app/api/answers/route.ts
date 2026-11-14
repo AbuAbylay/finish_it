@@ -1,5 +1,5 @@
 import { answersSchema, issues } from "@/lib/contracts";
-import { loadLesson, saveLearner, saveLessonResult } from "@/lib/db";
+import { loadLearner, loadLesson, saveGrading } from "@/lib/db";
 import { assertLessonOpen } from "@/lib/locks";
 import { gradeLesson, pace, stage } from "@/lib/rules";
 import { HttpError, context, json, readJson, requireSetUp, route } from "@/lib/server";
@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 /**
  * Grades the open lesson (PROJECT §5), updates the record and returns the result with the answers revealed.
  * Answers already checked one at a time win over any sent in the body.
+ * The lesson result and the record are written in one transaction (saveGrading): both or neither.
  */
 export const POST = route(async (req) => {
   const ctx = requireSetUp(await context(req));
@@ -25,10 +26,16 @@ export const POST = route(async (req) => {
 
   const answers = { ...sent.data, ...row.answers };
   const { record, result } = gradeLesson(ctx.record, row.order, row.lesson, answers, ctx.today);
-  if (!(await saveLessonResult(row.lesson_key, result))) {
-    const graded = await loadLesson(row.lesson_key);
-    return json({ result: graded?.result ?? result, already_graded: true, ...current() });
+  if (!(await saveGrading(row.lesson_key, result, record))) {
+    // Another request graded this lesson first: answer with what was stored, not with our own grading.
+    const [graded, stored] = await Promise.all([loadLesson(row.lesson_key), loadLearner(ctx.learnerId)]);
+    const now = stored ?? ctx.record;
+    return json({
+      result: graded?.result ?? result,
+      already_graded: true,
+      stage: stage(now, ctx.plan),
+      pace: pace(now, ctx.plan, ctx.today),
+    });
   }
-  await saveLearner(record);
   return json({ result, already_graded: false, stage: stage(record, ctx.plan), pace: pace(record, ctx.plan, ctx.today) });
 });

@@ -15,7 +15,8 @@ export const profileSchema = z.object({
   success: text(300),
   focus: z.array(text(200)).max(20),
   skip: z.array(text(200)).max(20),
-  minutes_per_day: z.number().int().min(5).max(120),
+  // A session is 10 to 30 minutes (lib/rules.ts clampMinutes); older stored values are clamped at use.
+  minutes_per_day: z.number().int().min(10).max(30),
   study_days: z.array(WEEKDAY_ENUM).min(1).max(7),
   deadline: z.string().refine(isIsoDate, "deadline must be a YYYY-MM-DD date"),
   prior_knowledge: text(300),

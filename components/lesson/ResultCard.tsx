@@ -2,6 +2,7 @@
 import { Icon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import type { LessonResult } from "@/lib/api-types";
+import { copy } from "@/lib/content";
 import { lessonCopy as t } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
@@ -11,7 +12,10 @@ export function ResultCard({
   onPlan,
   onSkip,
   skipping,
+  more,
 }: {
+  /** Set when today's session holds another lesson (a session of 25 minutes or more is two short lessons). */
+  more?: { done: number; total: number };
   result: LessonResult;
   onNext: () => void;
   onPlan: () => void;
@@ -38,15 +42,33 @@ export function ResultCard({
           </ul>
         </div>
       )}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button className="h-12" onClick={onPlan}>
-          {t.backToPlan}
-        </Button>
-        <Button variant="secondary" className="h-12" onClick={onNext}>
-          {t.nextLesson}
-          <Icon name="arrow-right" />
-        </Button>
-      </div>
+      {more ? (
+        <>
+          <p className="flex items-center gap-2 text-body text-ink">
+            <Icon name="clock" className="size-5 text-ink-muted" />
+            {copy.session.oneMore(more.done, more.total)}
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Button className="h-12" onClick={onNext}>
+              {copy.session.startNext(more.done + 1, more.total)}
+              <Icon name="arrow-right" />
+            </Button>
+            <Button variant="secondary" className="h-12" onClick={onPlan}>
+              {t.backToPlan}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button className="h-12" onClick={onPlan}>
+            {t.backToPlan}
+          </Button>
+          <Button variant="secondary" className="h-12" onClick={onNext}>
+            {t.nextLesson}
+            <Icon name="arrow-right" />
+          </Button>
+        </div>
+      )}
       <div className="space-y-2 rounded-control border border-dashed border-warn-line bg-warn-soft p-4">
         <p className="text-small text-ink">{t.demoHint}</p>
         <Button variant="secondary" className="w-full" onClick={onSkip} disabled={skipping}>

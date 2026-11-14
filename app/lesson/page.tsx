@@ -1,5 +1,6 @@
 "use client";
-// Today's lesson: why line, a quick review first (when due), the reading, then a quiz checked one question at a time.
+// Today's lesson: the time chooser at the start of a day's session, then the why line, a quick review first
+// (when due), the reading, and a quiz checked one question at a time.
 // /lesson?unit=X re-reads a covered unit without changing progress. /lesson?k=KEY reopens a graded lesson.
 // The server enforces locking; this page only renders what it is given.
 import { useRouter } from "next/navigation";
@@ -8,6 +9,7 @@ import { AppShell } from "@/components/AppShell";
 import { Icon } from "@/components/icons";
 import { LessonBody } from "@/components/lesson/LessonBody";
 import { LockedState } from "@/components/lesson/LockedState";
+import { MinutesChooser } from "@/components/lesson/MinutesChooser";
 import { ModeBadges } from "@/components/lesson/ModeBadges";
 import { QuestionSequence } from "@/components/lesson/QuestionSequence";
 import { ResultCard } from "@/components/lesson/ResultCard";
@@ -26,19 +28,22 @@ import type {
   PresentedLesson,
   QuestionResult,
   RereadResponse,
+  SessionResponse,
   Stage,
 } from "@/lib/api-types";
 import { api, emitDayChange, onDayChange } from "@/lib/client";
+import { copy } from "@/lib/content";
 import { lessonCopy as t, lessonsCopy } from "@/lib/copy/pages";
+
+type Params = { key?: string | null; unit?: string | null };
 
 type View =
   | { kind: "loading" }
+  | { kind: "choose"; session: SessionResponse; params: Params }
   | { kind: "lesson"; data: PresentedLesson }
   | { kind: "reread"; data: RereadResponse }
   | { kind: "locked"; message: string }
   | { kind: "error"; message: string; retryable: boolean; limited: boolean };
-
-type Params = { key?: string | null; unit?: string | null };
 
 function readUrl(): Params {
   const p = new URLSearchParams(window.location.search);
@@ -61,9 +66,10 @@ function AnsweredList({ questions, seed, feedback }: { questions: PresentedLesso
   );
 }
 
-function LessonHeader({ data }: { data: PresentedLesson }) {
+function LessonHeader({ data, sessionLabel }: { data: PresentedLesson; sessionLabel: string | null }) {
   return (
     <header className="space-y-3">
+      {sessionLabel && <p className="text-small font-semibold text-ink-muted">{sessionLabel}</p>}
       <ModeBadges mode={data.order.mode} minutes={data.order.minutes} />
       <h1 className="text-h1 text-ink">{data.lesson.title}</h1>
       <WhyLine text={data.order.why} />
@@ -84,6 +90,9 @@ export default function LessonPage() {
   const [grading, setGrading] = useState(false);
   const [gradeError, setGradeError] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
+  const [session, setSession] = useState<SessionResponse | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const [chooseError, setChooseError] = useState<string | null>(null);
   const loadedOnce = useRef(false);
   const reviewRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -93,6 +102,14 @@ export default function LessonPage() {
       setView({ kind: "loading" });
       setGradeError(null);
       setReviewHint(false);
+      // A day's session starts with one question: how much time is there today? The server says when to ask.
+      // If this request fails, the lesson request below reports the real error.
+      const s = await api<SessionResponse>("/api/session");
+      setSession(s.ok ? s.data : null);
+      if (s.ok && s.data.ask && !params.key && (!params.unit || params.unit === s.data.open_unit_id)) {
+        setChooseError(null);
+        return setView({ kind: "choose", session: s.data, params });
+      }
       const path = params.key
         ? `/api/lesson?key=${encodeURIComponent(params.key)}`
         : params.unit
@@ -139,6 +156,16 @@ export default function LessonPage() {
     [load],
   );
 
+  async function choose(minutes: number) {
+    if (view.kind !== "choose") return;
+    setChoosing(true);
+    setChooseError(null);
+    const res = await api<SessionResponse>("/api/session", { method: "POST", body: { minutes } });
+    setChoosing(false);
+    if (!res.ok) return setChooseError(res.error);
+    void load(view.params);
+  }
+
   async function check(questionId: string, choice: number): Promise<string | null> {
     if (view.kind !== "lesson") return null;
     const res = await api<CheckResponse>("/api/answers/check", {
@@ -167,11 +194,15 @@ export default function LessonPage() {
     setGrading(true);
     setGradeError(null);
     const res = await api<AnswersResponse>("/api/answers", { method: "POST", body: { lesson_key: view.data.lesson_key } });
-    setGrading(false);
     if (!res.ok) {
+      setGrading(false);
       if (res.code === "locked" || res.code === "stale") return void load({});
       return setGradeError(res.error);
     }
+    // Today's session may hold a second lesson; the result card needs the fresh count.
+    const s = await api<SessionResponse>("/api/session");
+    if (s.ok) setSession(s.data);
+    setGrading(false);
     setResult(res.data.result);
     setStage(res.data.stage);
     setChecked(Object.fromEntries([...res.data.result.quiz, ...res.data.result.review_quiz].map((r) => [r.question_id, r])));
@@ -217,6 +248,10 @@ export default function LessonPage() {
         </div>
       </>,
     );
+  }
+
+  if (view.kind === "choose") {
+    return shell(<MinutesChooser session={view.session} busy={choosing} error={chooseError} onStart={choose} />);
   }
 
   if (view.kind === "locked") return shell(<LockedState message={view.message} />);
@@ -275,10 +310,20 @@ export default function LessonPage() {
   const seed = data.lesson_key;
   const review = data.lesson.review_quiz;
   const reviewRight = review.filter((q) => checked[q.question_id]?.correct).length;
+  // A session of 25 minutes or more is two short lessons: say which one this is, and lead into the second.
+  const split = session !== null && session.lessons_in_session === 2;
+  const sessionLabel =
+    split && !result && session.lessons_done_today < session.lessons_in_session
+      ? copy.session.lessonOf(session.lessons_done_today + 1, session.lessons_in_session)
+      : null;
+  const more =
+    split && result && stage !== "done" && session.open_unit_id !== null && session.lessons_done_today === 1
+      ? { done: 1, total: session.lessons_in_session }
+      : undefined;
 
   return shell(
     <>
-      <LessonHeader data={data} />
+      <LessonHeader data={data} sessionLabel={sessionLabel} />
 
       {review.length > 0 && (
         <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-warn-line bg-surface p-5 shadow-card md:p-6">
@@ -344,7 +389,7 @@ export default function LessonPage() {
 
       {result && (
         <div ref={resultRef} className="scroll-mt-20">
-          <ResultCard result={result} onNext={nextLesson} onPlan={() => router.push("/")} onSkip={skipToTomorrow} skipping={skipping} />
+          <ResultCard result={result} more={more} onNext={nextLesson} onPlan={() => router.push("/")} onSkip={skipToTomorrow} skipping={skipping} />
         </div>
       )}
 

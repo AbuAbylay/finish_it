@@ -1,6 +1,6 @@
 "use client";
-// First page: start in one tap with a generated ID, or type an ID to continue.
-// The ID is a stand-in for sign-in; the server keeps the session (lib/identity.ts).
+// First page: start in one tap with a generated ID (sample course, or the learner's own course text),
+// or type an ID to continue. The ID is a stand-in for sign-in; the server keeps the session (lib/identity.ts).
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Icon } from "@/components/icons";
@@ -11,6 +11,8 @@ import { api, signOut } from "@/lib/client";
 import { enterCopy as c } from "@/lib/copy/pages";
 
 type Phase = "loading" | "new" | "returning" | "generated";
+/** Which course the new learner asked for. A new ID always starts with the sample attached; /upload replaces it. */
+type Course = "sample" | "own";
 
 function BrandMark() {
   return (
@@ -39,7 +41,8 @@ export default function EnterPage() {
   const [sample, setSample] = useState<"real" | "dev" | null>(null);
   const [loginId, setLoginId] = useState<string | null>(null);
   const [copied, setCopied] = useState<"no" | "yes" | "failed">("no");
-  const [generating, setGenerating] = useState(false);
+  const [generating, setGenerating] = useState<Course | null>(null);
+  const [course, setCourse] = useState<Course>("sample");
   const [genError, setGenError] = useState<string | null>(null);
   const [typed, setTyped] = useState("");
   const [entering, setEntering] = useState(false);
@@ -50,7 +53,7 @@ export default function EnterPage() {
     void (async () => {
       const [meRes, health] = await Promise.all([api<MeResponse>("/api/me"), api<{ sample: "real" | "dev" | null }>("/api/health")]);
       if (health.ok) setSample(health.data.sample);
-      if (meRes.ok && meRes.data.stage !== "start") {
+      if (meRes.ok) {
         setMe(meRes.data);
         setPhase("returning");
       } else {
@@ -59,12 +62,14 @@ export default function EnterPage() {
     })();
   }, []);
 
-  async function generate() {
-    setGenerating(true);
+  async function generate(wanted: Course) {
+    if (generating) return;
+    setGenerating(wanted);
     setGenError(null);
     const res = await api<GenerateResponse>("/api/identity/generate", { method: "POST" });
-    setGenerating(false);
+    setGenerating(null);
     if (!res.ok) return setGenError(res.error);
+    setCourse(wanted);
     setLoginId(res.data.login_id);
     setPhase("generated");
   }
@@ -137,11 +142,17 @@ export default function EnterPage() {
                   <h2 id="start-title" className="sr-only">
                     {c.primary}
                   </h2>
-                  <Button className="h-12 w-full" onClick={generate} disabled={generating}>
-                    {generating ? c.creating : c.primary}
-                    {!generating && <Icon name="arrow-right" />}
+                  <Button className="h-12 w-full" onClick={() => void generate("sample")} disabled={generating !== null}>
+                    {generating === "sample" ? c.creating : c.primary}
+                    {generating !== "sample" && <Icon name="arrow-right" />}
                   </Button>
                   <p className="text-center text-small text-ink-muted">{c.underButton}</p>
+                  <div className="space-y-2 border-t border-line pt-4">
+                    <Button variant="secondary" className="w-full" onClick={() => void generate("own")} disabled={generating !== null}>
+                      {generating === "own" ? c.creating : c.ownCourse}
+                    </Button>
+                    <p className="text-center text-small text-ink-muted">{c.ownCourseHelp}</p>
+                  </div>
                   {genError && <InlineError message={genError} />}
                 </>
               )}
@@ -171,8 +182,8 @@ export default function EnterPage() {
                     <Icon name="info" className="mt-0.5 size-4 text-warn" />
                     {c.idWarning}
                   </p>
-                  <Button className="h-12 w-full" onClick={() => router.push("/survey")}>
-                    {c.startSurvey}
+                  <Button className="h-12 w-full" onClick={() => router.push(course === "own" ? "/upload" : STAGE_HOME.survey)}>
+                    {course === "own" ? c.addCourse : c.startSurvey}
                     <Icon name="arrow-right" />
                   </Button>
                 </>
@@ -187,6 +198,11 @@ export default function EnterPage() {
                     {me.stage === "lesson" || me.stage === "done" ? c.continueLesson : c.continueSetup}
                     <Icon name="arrow-right" />
                   </Button>
+                  {me.stage === "survey" && (
+                    <Button variant="secondary" className="w-full" onClick={() => router.push("/upload")}>
+                      {c.ownCourse}
+                    </Button>
+                  )}
                   <Button variant="ghost" className="w-full" onClick={startOver}>
                     {c.startOver}
                   </Button>

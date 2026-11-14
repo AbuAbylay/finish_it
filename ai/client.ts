@@ -52,7 +52,8 @@ interface Received {
 async function send(req: ModelRequest, withFallback: boolean): Promise<ModelReply> {
   const started = Date.now();
   const base = { model: req.model, max_tokens: req.maxTokens, system: req.system, messages: req.messages };
-  const options = { timeout: req.timeoutMs, maxRetries: 0 };
+  // The SDK's timeout covers the wait for the response; the signal also ends a reply that stalls while it is being read.
+  const options = { timeout: req.timeoutMs, maxRetries: 0, signal: AbortSignal.timeout(req.timeoutMs) };
   const message: Received = withFallback
     ? await anthropic().beta.messages.create(
         {
@@ -86,7 +87,9 @@ async function send(req: ModelRequest, withFallback: boolean): Promise<ModelRepl
 }
 
 function failure(err: unknown): ModelReply {
-  if (err instanceof Anthropic.APIConnectionTimeoutError) return { ok: false, reason: "timeout", detail: "the request timed out" };
+  if (err instanceof Anthropic.APIConnectionTimeoutError || err instanceof Anthropic.APIUserAbortError) {
+    return { ok: false, reason: "timeout", detail: "the request timed out" };
+  }
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
     return { ok: false, reason: "auth", detail: `the API key was rejected (${err.status})` };
   }

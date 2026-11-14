@@ -175,6 +175,18 @@ export async function loadLesson(key: string): Promise<LessonRow | null> {
 }
 
 /** The most recent graded lesson a learner had on a unit, for re-reading. */
+/** The newest ungraded lesson among these keys, or null. */
+export async function loadUngradedLessonAmong(keys: string[]): Promise<LessonRow | null> {
+  if (keys.length === 0) return null;
+  const rs = await (await db()).execute({
+    sql: `SELECT ${LESSON_COLUMNS} FROM lessons
+          WHERE lesson_key IN (${keys.map(() => "?").join(", ")}) AND result IS NULL
+          ORDER BY created_at DESC LIMIT 1`,
+    args: keys,
+  });
+  return rs.rows.length ? toLessonRow(rs.rows[0] as Record<string, unknown>) : null;
+}
+
 export async function latestGradedLesson(learnerId: string, unitId: string): Promise<LessonRow | null> {
   const rs = await (await db()).execute({
     sql: `SELECT ${LESSON_COLUMNS} FROM lessons
@@ -218,6 +230,32 @@ export async function saveLessonResult(key: string, result: LessonResult): Promi
   return rs.rowsAffected === 1;
 }
 
+/**
+ * Grades a lesson: stores the learner's updated record and the lesson's result in one transaction.
+ * Each write happens only if the other one can: the record is saved only while the lesson is still
+ * ungraded (so a double submit grades once), and the result only if the learner exists. If either
+ * write fails, neither is kept. Returns false when the lesson was already graded.
+ */
+export async function saveGrading(key: string, result: LessonResult, record: LearnerRecord): Promise<boolean> {
+  const id = record.learner_id;
+  const [learner, lesson] = await (await db()).batch(
+    [
+      {
+        sql: `UPDATE learners SET record = ?, updated_at = ? WHERE learner_id = ?
+              AND EXISTS (SELECT 1 FROM lessons WHERE lesson_key = ? AND learner_id = ? AND result IS NULL)`,
+        args: [JSON.stringify(record), nowIso(), id, key, id],
+      },
+      {
+        sql: `UPDATE lessons SET result = ? WHERE lesson_key = ? AND learner_id = ? AND result IS NULL
+              AND EXISTS (SELECT 1 FROM learners WHERE learner_id = ?)`,
+        args: [JSON.stringify(result), key, id, id],
+      },
+    ],
+    "write",
+  );
+  return learner.rowsAffected === 1 && lesson.rowsAffected === 1;
+}
+
 /** Demo reset: a learner's cached lessons go with their progress. */
 export async function deleteLessonsOf(learnerId: string): Promise<void> {
   await (await db()).execute({ sql: "DELETE FROM lessons WHERE learner_id = ?", args: [learnerId] });
@@ -226,9 +264,10 @@ export async function deleteLessonsOf(learnerId: string): Promise<void> {
 // --- generation log (cost caps) --------------------------------------------
 
 /** Counts logged model calls. With a learner or IP filter, failed calls are left out: they only count toward the global total. */
-export async function countGenerations(since: string, by: { learnerId?: string; ip?: string } = {}): Promise<number> {
+export async function countGenerations(since: string, by: { learnerId?: string; ip?: string; failed?: boolean } = {}): Promise<number> {
   const where = ["created_at >= ?"];
-  if (by.learnerId || by.ip) where.push("kind != 'failed'");
+  if (by.failed) where.push("kind = 'failed'");
+  else if (by.learnerId || by.ip) where.push("kind != 'failed'");
   const args: string[] = [since];
   if (by.learnerId) {
     where.push("learner_id = ?");
@@ -247,4 +286,32 @@ export async function logGeneration(learnerId: string, ip: string, kind: "lesson
     sql: "INSERT INTO generations (learner_id, ip, kind, created_at) VALUES (?, ?, ?, ?)",
     args: [learnerId, ip, kind, nowIso()],
   });
+}
+
+// --- session length (today's choice) ----------------------------------------
+
+/** The session length a learner chose for a day (their own "today", demo offset included), or null. */
+export async function loadSessionMinutes(learnerId: string, day: string): Promise<number | null> {
+  const rs = await (await db()).execute({
+    sql: "SELECT minutes FROM session_minutes WHERE learner_id = ? AND day = ?",
+    args: [learnerId, day],
+  });
+  return rs.rows.length ? Number(rs.rows[0].minutes) : null;
+}
+
+/**
+ * Stores the choice for a day and returns the value in force. The first choice of a day stands:
+ * a later, different value does not replace it, so switching cannot trigger new lesson generations.
+ */
+export async function chooseSessionMinutes(learnerId: string, day: string, minutes: number): Promise<number> {
+  await (await db()).execute({
+    sql: "INSERT INTO session_minutes (learner_id, day, minutes, created_at) VALUES (?, ?, ?, ?) ON CONFLICT(learner_id, day) DO NOTHING",
+    args: [learnerId, day, minutes, nowIso()],
+  });
+  return (await loadSessionMinutes(learnerId, day)) ?? minutes;
+}
+
+/** Demo reset: a learner's session choices go with their progress. */
+export async function deleteSessionMinutesOf(learnerId: string): Promise<void> {
+  await (await db()).execute({ sql: "DELETE FROM session_minutes WHERE learner_id = ?", args: [learnerId] });
 }

@@ -7,12 +7,12 @@ export const dynamic = "force-dynamic";
 export const GET = route(async (req) => {
   const ctx = requireSetUp(await context(req));
   if (!placementDone(ctx.record)) throw new HttpError(409, "Take the short test first.", "no_placement");
-  const next = pickNext(ctx.record, ctx.plan, ctx.today);
+  const next = pickNext(ctx.record, ctx.plan, ctx.today, ctx.minutesToday);
   return json({
     today: ctx.today,
     demo_day_offset: ctx.record.demo_day_offset,
     course_title: ctx.record.profile?.course_title || ctx.plan.title,
-    items: lessonStates(ctx.record, ctx.plan, ctx.today),
+    items: lessonStates(ctx.record, ctx.plan, ctx.today, ctx.minutesToday),
     next:
       next.kind === "lesson"
         ? { unit_id: next.order.unit.unit_id, unit_title: next.order.unit.title, mode: next.order.mode, minutes: next.order.minutes, why: next.order.why }

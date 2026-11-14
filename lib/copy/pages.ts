@@ -37,9 +37,49 @@ export const enterCopy = {
   continueLesson: "Continue today's lesson",
   continueSetup: "Continue where you left off",
   startOver: "Start over",
+  // COPY.md: no "Use my own course" button until upload works. It works now (app/upload/page.tsx).
+  ownCourse: "Use my own course",
+  // not in COPY.md: the own-course path
+  ownCourseHelp: "Paste the text of a course you already have.",
+  addCourse: "Add your course",
   creditSampleReal: "Sample course: original study notes written for this project; not official PMI material.",
   creditSampleDev: "Sample course: original text written for this demo.",
   creditMethod: "Teaching method adapted from Matt Pocock's teach skill (MIT).",
+} as const;
+
+const thousands = (n: number) => n.toLocaleString("en-US");
+
+/** /upload: the learner's own course text. Not in COPY.md; every line needs Al-Farabi's review. */
+export const uploadCopy = {
+  title: "Your course",
+  heading: "Use your own course",
+  intro: "Paste the text of your course: your notes, a study guide or a few chapters. We split it into topics and build your plan from it.",
+  fieldLabel: "Your course text",
+  placeholder: "Paste your course text here",
+  counter: (n: number, max: number) => `${thousands(n)} of ${thousands(max)} characters`,
+  chooseFile: "Choose a .txt or .md file",
+  fileHelp: "PDF files are not supported yet. Open the PDF, copy the text and paste it here.",
+  fileLoaded: (name: string) => `Loaded ${name}.`,
+  fileWrongType: "That file type is not supported. Choose a .txt or .md file, or paste the text.",
+  fileTooBig: "That file is too large. Paste the part of the course you want to start with.",
+  fileUnreadable: "We couldn't read that file. Paste the text instead.",
+  caution: "Leave out anything confidential. The text is sent to an AI model, and the parts used in your plan are stored with it.",
+  // Also returned by POST /api/course (400 too_short, 413 too_long).
+  tooShort: "Paste more of your course: at least 1,500 characters, about one page.",
+  tooLong: "That is more text than we can handle in one go. Paste up to about 10,000 words.",
+  submit: "Build my plan",
+  waitingTitle: "Building your plan…",
+  waitingLine: "We are reading your course and splitting it into topics. This can take up to a minute. Keep this page open.",
+  waitingElapsed: (seconds: number) => `${seconds} ${seconds === 1 ? "second" : "seconds"} so far`,
+  slow: "That took longer than we can wait. Try again, or paste a shorter part of your course.",
+  signedOut: "Your session has ended. Enter your ID to continue.",
+  toEnter: "Go to the ID page",
+  doneTitle: (n: number) => `Your plan has ${plural(n, "topic")}.`,
+  doneFrom: (title: string) => `Built from “${title}”.`,
+  doneNext: "Next: 8 quick questions about your exam date and your time.",
+  replace: "Use a different text",
+  useSample: "Use the sample PMP course instead",
+  loadingSample: "Loading the sample course…",
 } as const;
 
 export const modeLabel: Record<Mode, string> = { new: "New topic", review: "Review", catch_up: "Catch-up" };
@@ -66,13 +106,13 @@ export const homeCopy = {
 } as const;
 
 /** Pace sentences from COPY.md "Calendar tracker and pace" (single source: copy.pace in lib/content.ts). */
-export function paceSentence(p: { lessons_left: number; days_left: number; on_track: boolean; behind_by: number }): {
+export function paceSentence(p: { lessons_left: number; days_left: number; spare_days: number; on_track: boolean; behind_by: number }): {
   line: string;
   suggestion: string | null;
 } {
   if (p.lessons_left === 0) return { line: copy.pace.finished, suggestion: null };
-  const spare = p.days_left - p.lessons_left;
-  if (p.on_track && spare > 0) return { line: copy.pace.onTrackSpare(p.lessons_left, p.days_left, spare), suggestion: null };
+  // spare_days comes from lib/rules.ts pace(): it allows for two lessons a day in sessions of 25 minutes or more.
+  if (p.on_track && p.spare_days > 0) return { line: copy.pace.onTrackSpare(p.lessons_left, p.days_left, p.spare_days), suggestion: null };
   if (p.on_track) return { line: copy.pace.onTrackExact, suggestion: null };
   return { line: copy.pace.behind(p.behind_by, p.lessons_left, p.days_left), suggestion: copy.pace.suggestion };
 }

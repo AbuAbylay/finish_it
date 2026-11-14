@@ -64,6 +64,19 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS lessons_learner ON lessons (learner_id)`,
     ],
   },
+  {
+    version: 3,
+    name: "session length: the minutes a learner chose for a day, kept outside the learner record",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS session_minutes (
+         learner_id TEXT NOT NULL,
+         day TEXT NOT NULL,
+         minutes INTEGER NOT NULL,
+         created_at TEXT NOT NULL,
+         PRIMARY KEY (learner_id, day)
+       )`,
+    ],
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

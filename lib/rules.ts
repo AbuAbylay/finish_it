@@ -291,33 +291,110 @@ export function gradeLesson(
 }
 
 // ---------------------------------------------------------------------------
+// Session length
+// ---------------------------------------------------------------------------
+
+export const MIN_SESSION_MINUTES = 10;
+export const MAX_SESSION_MINUTES = 30;
+/** From this session length on, the time is split into two short lessons. */
+export const TWO_LESSON_MINUTES = 25;
+export const MAX_SPLIT_LESSON_MINUTES = 20;
+/** What the time chooser offers at the start of a session. */
+export const SESSION_OPTIONS = [10, 15, 20, 25, 30] as const;
+const DEFAULT_MINUTES = 15;
+
+/** A session lasts 10 to 30 whole minutes, whatever was stored or asked for. */
+export function clampMinutes(minutes: number): number {
+  if (!Number.isFinite(minutes)) return DEFAULT_MINUTES;
+  return Math.min(MAX_SESSION_MINUTES, Math.max(MIN_SESSION_MINUTES, Math.round(minutes)));
+}
+
+/** Reads a session length sent by the browser: a whole number of minutes, limited to 10 to 30. Null when it is not one. */
+export function parseMinutes(value: unknown): number | null {
+  const n = typeof value === "string" && /^\d{1,4}$/.test(value.trim()) ? Number(value) : value;
+  return typeof n === "number" && Number.isInteger(n) && n > 0 ? clampMinutes(n) : null;
+}
+
+/** A session of 25 minutes or more holds two lessons; a shorter one holds one. */
+export function lessonsInSession(minutes: number): 1 | 2 {
+  return clampMinutes(minutes) >= TWO_LESSON_MINUTES ? 2 : 1;
+}
+
+/** Length of one lesson: the whole session, or half of it (whole minutes, at most 20) when the session holds two. */
+export function lessonMinutes(minutes: number): number {
+  const session = clampMinutes(minutes);
+  return lessonsInSession(session) === 2 ? Math.min(MAX_SPLIT_LESSON_MINUTES, Math.floor(session / 2)) : session;
+}
+
+/** The session length in force: today's choice, else the minutes from the profile, else 15. Always 10 to 30. */
+export function sessionLength(record: LearnerRecord, minutesToday: number | null = null): number {
+  return clampMinutes(minutesToday ?? record.profile?.minutes_per_day ?? DEFAULT_MINUTES);
+}
+
+export interface SessionOption {
+  minutes: number;
+  lessons: 1 | 2;
+  lesson_minutes: number;
+}
+
+export interface SessionPlan {
+  /** What the learner chose for today, or null when they have not chosen yet. */
+  chosen: number | null;
+  /** The profile's minutes (10 to 30): used on a day with no choice. */
+  default_minutes: number;
+  /** The session length in force today. */
+  minutes: number;
+  lessons_in_session: 1 | 2;
+  lesson_minutes: number;
+  /** Lessons already graded today. */
+  lessons_done_today: number;
+  options: SessionOption[];
+}
+
+/** Today's session at a glance, for the time chooser and the "lesson 1 of 2" labels. */
+export function sessionPlan(record: LearnerRecord, today: string, minutesToday: number | null = null): SessionPlan {
+  const minutes = sessionLength(record, minutesToday);
+  return {
+    chosen: minutesToday === null ? null : clampMinutes(minutesToday),
+    default_minutes: sessionLength(record),
+    minutes,
+    lessons_in_session: lessonsInSession(minutes),
+    lesson_minutes: lessonMinutes(minutes),
+    lessons_done_today: record.sessions.filter((s) => s.date === today).length,
+    options: SESSION_OPTIONS.map((m) => ({ minutes: m, lessons: lessonsInSession(m), lesson_minutes: lessonMinutes(m) })),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Picking the next unit
 // ---------------------------------------------------------------------------
 
 export type NextStep = { kind: "finished" } | { kind: "lesson"; order: Order };
 
-const DEFAULT_MINUTES = 15;
-
-export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string): NextStep {
+/**
+ * `minutesToday` is the session length the learner chose for today (null when they have not chosen):
+ * the order's `minutes` is the length of one lesson of that session.
+ */
+export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string, minutesToday: number | null = null): NextStep {
   // Rule 6: nothing left to learn.
   if (openUnits(record, plan).length === 0) return { kind: "finished" };
 
   const profile = record.profile;
   const byId = new Map(plan.units.map((u) => [u.unit_id, u]));
-  const profileMinutes = profile?.minutes_per_day ?? DEFAULT_MINUTES;
+  const lesson = lessonMinutes(sessionLength(record, minutesToday));
   const last = record.sessions.at(-1);
   const lastUnit = last ? byId.get(last.unit_id) : undefined;
   const missedDays = missedStudyDays(record, today);
 
   let mode: Mode;
   let unit: Unit;
-  let minutes = profileMinutes;
+  let minutes = lesson;
 
   if (lastUnit && missedDays.length > 0) {
-    // Rule 1: planned study days were missed since last_active.
+    // Rule 1: planned study days were missed since last_active. A catch-up is never longer than 10 minutes.
     mode = "catch_up";
     unit = lastUnit;
-    minutes = Math.min(profileMinutes, CATCH_UP_MAX_MINUTES);
+    minutes = Math.min(lesson, CATCH_UP_MAX_MINUTES);
   } else if (lastUnit && unitStatus(record, lastUnit.unit_id) === "needs_review") {
     // Rule 2: the last unit needs another pass.
     mode = "review";
@@ -436,13 +513,24 @@ export interface LessonListItem {
   score: number | null;
 }
 
-export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: string): LessonListItem[] {
-  const next = pickNext(record, plan, today);
+export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: string, minutesToday: number | null = null): LessonListItem[] {
+  const next = pickNext(record, plan, today, minutesToday);
   const open = next.kind === "lesson" ? next.order : null;
   const studyDays = studyDaysOf(record.profile);
-  const minutes = record.profile?.minutes_per_day ?? DEFAULT_MINUTES;
-  const studiedToday = record.sessions.some((s) => s.date === today);
-  let planned = studiedToday ? nextStudyDay(today, studyDays) : today;
+  const usual = sessionLength(record);
+  const minutes = lessonMinutes(usual);
+  // Planned dates: today holds what is left of today's session, every later study day a full session.
+  const doneToday = record.sessions.filter((s) => s.date === today).length;
+  let day = today;
+  let room = Math.max(0, lessonsInSession(sessionLength(record, minutesToday)) - doneToday);
+  const nextSlot = (): string => {
+    if (room === 0) {
+      day = nextStudyDay(day, studyDays);
+      room = lessonsInSession(usual);
+    }
+    room--;
+    return day;
+  };
 
   return plan.units.map((u) => {
     const unitState = record.units[u.unit_id];
@@ -451,14 +539,10 @@ export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: str
     const base = { unit_id: u.unit_id, title: u.title, objective: u.objective, score: unitState?.score ?? null };
 
     if (open && open.unit.unit_id === u.unit_id) {
-      const item: LessonListItem = { ...base, state: "next", mode: open.mode, minutes: open.minutes, date: planned, date_kind: "planned" };
-      planned = nextStudyDay(planned, studyDays);
-      return item;
+      return { ...base, state: "next", mode: open.mode, minutes: open.minutes, date: nextSlot(), date_kind: "planned" };
     }
     if (status === "todo") {
-      const item: LessonListItem = { ...base, state: "locked", mode: null, minutes, date: open ? planned : null, date_kind: open ? "planned" : null };
-      if (open) planned = nextStudyDay(planned, studyDays);
-      return item;
+      return { ...base, state: "locked", mode: null, minutes, date: open ? nextSlot() : null, date_kind: open ? "planned" : null };
     }
     const state: LessonState = status === "known" ? "known" : status === "done" ? "done" : "needs_review";
     const date = lastSession?.date ?? unitState?.last_seen ?? null;
@@ -483,6 +567,10 @@ export function canReread(state: LessonState | null): boolean {
 export interface Pace {
   lessons_left: number;
   days_left: number;
+  /** Lessons one study day holds at the learner's usual session length: 2 from 25 minutes, else 1. */
+  lessons_per_day: number;
+  /** Study days left over once every remaining lesson has a day. Negative when behind. */
+  spare_days: number;
   on_track: boolean;
   behind_by: number;
   line: string;
@@ -491,19 +579,29 @@ export interface Pace {
 /**
  * lessons_left = units still `todo` or `needs_review`.
  * days_left = planned study days from today up to (not including) the exam date.
- * Today counts only while today's session is still to do.
+ * Today counts only while it still has room for a lesson: one lesson a day, or two from 25 minutes.
+ * On track while the lessons left fit into the room left: today's free lessons plus the later days' lessons.
  */
 export function pace(record: LearnerRecord, plan: CoursePlan, today: string): Pace {
   const lessons_left = openUnits(record, plan).length;
   const deadline = record.profile?.deadline;
-  const studiedToday = record.sessions.some((s) => s.date === today);
-  const from = studiedToday ? addDays(today, 1) : today;
-  const days_left = deadline && isIsoDate(deadline) ? countStudyDays(from, deadline, studyDaysOf(record.profile)) : 0;
-  const on_track = lessons_left <= days_left;
-  const behind_by = on_track ? 0 : lessons_left - days_left;
+  const studyDays = studyDaysOf(record.profile);
+  const lessons_per_day = lessonsInSession(sessionLength(record));
+  const hasDeadline = !!deadline && isIsoDate(deadline);
+  const laterDays = hasDeadline ? countStudyDays(addDays(today, 1), deadline, studyDays) : 0;
+  const todayIsPlanned = hasDeadline && countStudyDays(today, deadline, studyDays) > laterDays;
+  const doneToday = record.sessions.filter((s) => s.date === today).length;
+  const roomToday = todayIsPlanned ? Math.max(0, lessons_per_day - doneToday) : 0;
+  const days_left = laterDays + (roomToday > 0 ? 1 : 0);
+  const capacity = laterDays * lessons_per_day + roomToday;
+  const on_track = lessons_left <= capacity;
+  const behind_by = on_track ? 0 : lessons_left - capacity;
+  const spare_days = on_track
+    ? Math.floor((capacity - lessons_left) / lessons_per_day)
+    : -Math.ceil((lessons_left - capacity) / lessons_per_day);
   const line =
     lessons_left === 0 ? "Course finished" : on_track ? "On track" : `Behind by ${behind_by} lesson${behind_by === 1 ? "" : "s"}`;
-  return { lessons_left, days_left, on_track, behind_by, line };
+  return { lessons_left, days_left, lessons_per_day, spare_days, on_track, behind_by, line };
 }
 
 export type ReminderType = "planned_day" | "missed_day";

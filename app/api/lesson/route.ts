@@ -1,13 +1,14 @@
 import { writeLesson } from "@/ai";
 import { parseLesson } from "@/lib/contracts";
-import { latestGradedLesson, loadLesson, saveLesson, type LessonRow } from "@/lib/db";
+import { chooseSessionMinutes, latestGradedLesson, loadLesson, saveLesson, type LessonRow } from "@/lib/db";
 import { assertLessonOpen, lockedError } from "@/lib/locks";
-import { canReread, lessonStateOf, pickNext, placementDone } from "@/lib/rules";
+import { canReread, lessonStateOf, parseMinutes, pickNext, placementDone, sessionLength } from "@/lib/rules";
 import {
   HttpError,
   assertUnderCaps,
   clientIp,
   context,
+  findLesson,
   json,
   lessonKey,
   presentLesson,
@@ -46,7 +47,9 @@ async function generate(key: string, learnerId: string, ip: string, order: Order
 }
 
 /**
- * GET /api/lesson            -> the open lesson (picks the next unit; cached or newly written).
+ * GET /api/lesson            -> the open lesson (picks the next unit; cached or newly written), sized to today's
+ *                               session: the learner's choice for today, else the minutes from their profile.
+ * GET /api/lesson?minutes=20 -> the same, after storing 20 as today's choice (like POST /api/session).
  * GET /api/lesson?unit=u03   -> the open lesson if u03 is open; a read-only view if u03 is done or known;
  *                               403 "locked" otherwise.
  * GET /api/lesson?key=...    -> a lesson this learner already has: graded ones always, ungraded ones only while open.
@@ -81,13 +84,25 @@ export const GET = route(async (req) => {
     // state === "next": fall through to the open lesson.
   }
 
-  const next = pickNext(ctx.record, ctx.plan, ctx.today);
+  // The first choice of a day stands, so asking again with another value cannot trigger a second lesson.
+  let minutesToday = ctx.minutesToday;
+  const asked = req.nextUrl.searchParams.get("minutes");
+  if (asked !== null) {
+    const minutes = parseMinutes(asked);
+    if (minutes === null) throw new HttpError(400, "minutes must be a whole number.", "bad_minutes");
+    if (minutesToday === null) minutesToday = await chooseSessionMinutes(ctx.learnerId, ctx.today, minutes);
+  }
+
+  const next = pickNext(ctx.record, ctx.plan, ctx.today, minutesToday);
   if (next.kind === "finished") return json({ finished: true });
 
   const order = next.order;
-  const k = lessonKey(ctx.record, order);
-  let row = await loadLesson(k);
+  // A lesson in progress for this unit is resumed, whatever length it was written for.
+  let row = await findLesson(ctx.record, order);
   if (!row) {
+    // The lesson about to be written fixes today's session length, so a later choice cannot replace it.
+    if (minutesToday === null) await chooseSessionMinutes(ctx.learnerId, ctx.today, sessionLength(ctx.record));
+    const k = lessonKey(ctx.record, order);
     let pending = inflight.get(k);
     if (!pending) {
       pending = generate(k, ctx.learnerId, clientIp(req), order).finally(() => inflight.delete(k));

@@ -113,10 +113,16 @@ async function run() {
     check("a locked unit's lesson is refused (403 locked)", locked.status === 403 && locked.data.code === "locked", locked);
   }
 
-  step("4. First lesson, one question wrong on purpose");
+  step("4. Session length, then the first lesson with one question wrong on purpose");
+  const ses0 = (await call("GET", "/api/session")).data;
+  check("the time chooser is due, with the profile's 15 minutes as the default", ses0.ask === true && ses0.default_minutes === 15 && ses0.options?.length === 5, ses0);
+  const ses1 = (await call("POST", "/api/session", { minutes: 20 })).data;
+  check("today's choice of 20 minutes is stored", ses1.chosen === 20 && ses1.ask === false && ses1.lesson_minutes === 20, ses1);
+  check("a later choice on the same day does not replace it", (await call("POST", "/api/session", { minutes: 10 })).data.chosen === 20);
   const t0 = Date.now();
   const l1 = (await call("GET", "/api/lesson")).data;
   check(`lesson returned (${Date.now() - t0} ms)`, !!l1.lesson && l1.lesson.unit_id === firstOpen, l1);
+  check("the lesson is sized to today's choice", l1.order?.minutes === 20, l1.order);
   check("mode 'new', why line, 3 quiz questions, a source quote per section", l1.order?.mode === "new" && l1.order.why && l1.lesson.quiz.length === 3 && l1.lesson.sections.every((s) => s.source_quote), l1.order);
   check("no answers leak before checking", !leaks([...l1.lesson.quiz, ...l1.lesson.review_quiz]));
   check("refresh returns the same cached lesson", (await call("GET", "/api/lesson")).data.lesson_key === l1.lesson_key);
@@ -140,7 +146,12 @@ async function run() {
 
   step("5. Skip to tomorrow: the next lesson changes");
   check("demo_day_offset is 1", (await call("POST", "/api/demo/skip-day")).data.demo_day_offset === 1);
+  const ses2 = (await call("GET", "/api/session")).data;
+  check("the new day asks for the time again", ses2.ask === true && ses2.chosen === null, ses2);
+  const ses3 = (await call("POST", "/api/session", { minutes: 30 })).data;
+  check("30 minutes is two short lessons of 15", ses3.lessons_in_session === 2 && ses3.lesson_minutes === 15, ses3);
   const l2 = (await call("GET", "/api/lesson")).data;
+  check("the lesson is one of the two 15-minute lessons", l2.order?.minutes === 15, l2.order);
   check(`why line names "${missed}"`, (l2.order?.why ?? "").includes(`“${missed}”`), l2.order?.why);
   check(
     "the missed concept is a review question",
@@ -154,6 +165,7 @@ async function run() {
     const answer = known.get(q.prompt);
     return answer ? Math.max(0, q.options.indexOf(answer)) : 0;
   });
+  check("one of today's two lessons is done", (await call("GET", "/api/session")).data.lessons_done_today === 1);
   list = (await call("GET", "/api/lessons")).data.items;
   const after = list.find((i) => i.unit_id === openBefore);
   if (r2.graded.data.result.status === "done") {

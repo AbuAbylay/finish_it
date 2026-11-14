@@ -4,8 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import type { MeResponse, Stage } from "@/lib/api-types";
 import { api, onDayChange, setClientKey } from "@/lib/client";
 
+/** Where each stage lives. "start" is a learner with an ID and no course yet: they add one on /upload. */
 export const STAGE_HOME: Record<Stage, string> = {
-  start: "/enter",
+  start: "/upload",
   survey: "/survey",
   test: "/test",
   lesson: "/",

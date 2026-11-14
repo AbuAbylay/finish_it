@@ -30,7 +30,8 @@ const LIMITS = {
   enterFailures: 10,
   enterTotal: 60,
   generateWindowMs: 60 * 60 * 1000,
-  generateTotal: Number(process.env.ID_CAP_PER_IP_HOUR) > 0 ? Number(process.env.ID_CAP_PER_IP_HOUR) : 30,
+  // A venue can put every juror behind one address, so the default leaves room for a full hall.
+  generateTotal: Number(process.env.ID_CAP_PER_IP_HOUR) > 0 ? Number(process.env.ID_CAP_PER_IP_HOUR) : 300,
 };
 
 /** 20 random symbols x 5 bits = 100 bits, shown in groups of five: "k7m2q-x2pd9-fhwc4-tnr8b". */

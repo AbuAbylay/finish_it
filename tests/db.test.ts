@@ -76,6 +76,21 @@ describe("storage", () => {
   });
 });
 
+describe("session length", () => {
+  it("keeps the first choice of a day, per learner and per day", async () => {
+    const { chooseSessionMinutes, deleteSessionMinutesOf, loadSessionMinutes } = await import("@/lib/db");
+    expect(await loadSessionMinutes("l1", "2026-11-16")).toBeNull();
+    expect(await chooseSessionMinutes("l1", "2026-11-16", 20)).toBe(20);
+    expect(await chooseSessionMinutes("l1", "2026-11-16", 30)).toBe(20); // the first choice stands
+    expect(await loadSessionMinutes("l1", "2026-11-16")).toBe(20);
+    expect(await loadSessionMinutes("l1", "2026-11-17")).toBeNull(); // a new day asks again
+    expect(await chooseSessionMinutes("l2", "2026-11-16", 10)).toBe(10); // another learner, same day
+    await deleteSessionMinutesOf("l1");
+    expect(await loadSessionMinutes("l1", "2026-11-16")).toBeNull();
+    expect(await loadSessionMinutes("l2", "2026-11-16")).toBe(10);
+  });
+});
+
 describe("migrations", () => {
   it("are versioned, applied once, and leave the schema at the latest version", async () => {
     const { schemaVersion, createLearner, learnerIdByLoginId, loginIdOf } = await import("@/lib/db");

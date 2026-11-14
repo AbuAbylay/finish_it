@@ -3,16 +3,22 @@ import { addDays, countStudyDays, nextStudyDay, studyDaysStrictlyBetween, today,
 import {
   calendar,
   canReread,
+  clampMinutes,
+  lessonMinutes,
   lessonStates,
+  lessonsInSession,
   currentStreak,
   gradeLesson,
   gradePlacement,
   newRecord,
   pace,
+  parseMinutes,
   pickNext,
   recordMiss,
   recordReviewHit,
   reminderToday,
+  sessionLength,
+  sessionPlan,
   stage,
   startCourse,
   type NextStep,
@@ -254,9 +260,13 @@ describe("picker", () => {
     expect(orderOf(pickNext(r, plan, THU)).mode).toBe("new");
   });
 
-  it("catch_up keeps the learner's minutes when they are under 10", () => {
-    const r = study(placed(MON, profile({ minutes_per_day: 5 })), MON).record;
-    expect(orderOf(pickNext(r, plan, WED)).minutes).toBe(5);
+  it("catch_up is 10 minutes whatever the session length, because no session is shorter than 10", () => {
+    for (const minutes_per_day of [5, 10, 20, 30]) {
+      const r = study(placed(MON, profile({ minutes_per_day })), MON).record;
+      expect(orderOf(pickNext(r, plan, WED)).minutes).toBe(10);
+    }
+    const r = study(placed(), MON).record;
+    expect(orderOf(pickNext(r, plan, WED, 25)).minutes).toBe(10);
   });
 
   it("a review item coming due is added to review_concepts and named in the why line", () => {
@@ -295,6 +305,71 @@ describe("picker", () => {
     for (const day of [MON, TUE, WED]) r = study(r, day).record;
     expect(pickNext(r, plan, THU)).toEqual({ kind: "finished" });
     expect(stage(r, plan)).toBe("done");
+  });
+});
+
+describe("session length", () => {
+  it("a session is limited to 10 to 30 whole minutes", () => {
+    expect([5, 10, 12.4, 17, 30, 45, 120].map(clampMinutes)).toEqual([10, 10, 12, 17, 30, 30, 30]);
+    expect(clampMinutes(Number.NaN)).toBe(15);
+  });
+
+  it("holds two lessons from 25 minutes, one below", () => {
+    expect([10, 15, 20, 24, 25, 30, 60].map(lessonsInSession)).toEqual([1, 1, 1, 1, 2, 2, 2]);
+  });
+
+  it("a lesson takes the whole session, or half of it when the session holds two", () => {
+    expect([10, 15, 20, 25, 30].map(lessonMinutes)).toEqual([10, 15, 20, 12, 15]);
+    expect(lessonMinutes(5)).toBe(10); // clamped first
+    expect(lessonMinutes(90)).toBe(15);
+  });
+
+  it("today's choice wins over the profile; without either it is 15 minutes", () => {
+    const r = placed(MON, profile({ minutes_per_day: 20 }));
+    expect(sessionLength(r)).toBe(20);
+    expect(sessionLength(r, 10)).toBe(10);
+    expect(sessionLength(r, 45)).toBe(30);
+    expect(sessionLength(newRecord("l0"))).toBe(15);
+  });
+
+  it("the order carries the length of one lesson of today's session", () => {
+    const r = placed(MON, profile({ minutes_per_day: 20 }));
+    expect(orderOf(pickNext(r, plan, MON)).minutes).toBe(20); // profile
+    expect(orderOf(pickNext(r, plan, MON, 10)).minutes).toBe(10); // today's choice
+    expect(orderOf(pickNext(r, plan, MON, 30)).minutes).toBe(15); // two lessons of 15
+    expect(orderOf(pickNext(r, plan, MON, 25)).minutes).toBe(12);
+    // Stored values outside 10 to 30 are clamped at use.
+    expect(orderOf(pickNext(placed(MON, profile({ minutes_per_day: 5 })), plan, MON)).minutes).toBe(10);
+    expect(orderOf(pickNext(placed(MON, profile({ minutes_per_day: 120 })), plan, MON)).minutes).toBe(15);
+  });
+
+  it("the choice changes the length only: unit, mode and why line stay the same", () => {
+    const r = study(placed(), MON, ["q2"]).record;
+    const { minutes: a, ...usual } = orderOf(pickNext(r, plan, TUE));
+    const { minutes: b, ...chosen } = orderOf(pickNext(r, plan, TUE, 30));
+    expect(chosen).toEqual(usual);
+    expect([a, b]).toEqual([15, 15]);
+    expect(orderOf(pickNext(r, plan, TUE, 10)).minutes).toBe(10);
+  });
+
+  it("sessionPlan describes today's session for the chooser", () => {
+    const r = placed(MON, profile({ minutes_per_day: 20 }));
+    expect(sessionPlan(r, MON)).toMatchObject({ chosen: null, default_minutes: 20, minutes: 20, lessons_in_session: 1, lesson_minutes: 20, lessons_done_today: 0 });
+    expect(sessionPlan(r, MON).options).toEqual([
+      { minutes: 10, lessons: 1, lesson_minutes: 10 },
+      { minutes: 15, lessons: 1, lesson_minutes: 15 },
+      { minutes: 20, lessons: 1, lesson_minutes: 20 },
+      { minutes: 25, lessons: 2, lesson_minutes: 12 },
+      { minutes: 30, lessons: 2, lesson_minutes: 15 },
+    ]);
+    const studied = study(r, MON).record;
+    expect(sessionPlan(studied, MON, 30)).toMatchObject({ chosen: 30, default_minutes: 20, minutes: 30, lessons_in_session: 2, lesson_minutes: 15, lessons_done_today: 1 });
+    expect(sessionPlan(studied, TUE, 30).lessons_done_today).toBe(0);
+  });
+
+  it("reads a session length sent by the browser", () => {
+    expect([parseMinutes(15), parseMinutes("20"), parseMinutes(45), parseMinutes(" 5 ")]).toEqual([15, 20, 30, 10]);
+    expect([parseMinutes("abc"), parseMinutes(12.5), parseMinutes(-10), parseMinutes(null), parseMinutes(""), parseMinutes(0)]).toEqual([null, null, null, null, null, null]);
   });
 });
 
@@ -343,6 +418,39 @@ describe("pace", () => {
     let r = placed();
     for (const day of [MON, TUE, WED]) r = study(r, day).record;
     expect(pace(r, plan, THU).line).toBe("Course finished");
+  });
+
+  it("spare days are the study days left over after every lesson has a day", () => {
+    const r = placed(MON, profile({ deadline: "2026-11-21" })); // 3 lessons, 5 study days
+    expect(pace(r, plan, MON)).toMatchObject({ lessons_per_day: 1, spare_days: 2 });
+    expect(pace(r, plan, THU)).toMatchObject({ spare_days: -1, on_track: false });
+  });
+
+  it("a session of 25 minutes or more fits two lessons into each study day", () => {
+    const short = placed(MON, profile({ deadline: "2026-11-21", minutes_per_day: 20 }));
+    const long = placed(MON, profile({ deadline: "2026-11-21", minutes_per_day: 30 }));
+    // Friday: 3 lessons left and 1 study day before the exam.
+    expect(pace(short, plan, "2026-11-20")).toMatchObject({ days_left: 1, lessons_per_day: 1, on_track: false, behind_by: 2, line: "Behind by 2 lessons" });
+    expect(pace(long, plan, "2026-11-20")).toMatchObject({ days_left: 1, lessons_per_day: 2, on_track: false, behind_by: 1, line: "Behind by 1 lesson" });
+    // Thursday: 2 study days hold 4 lessons, so 3 lessons are on track, with no day to spare.
+    expect(pace(long, plan, THU)).toMatchObject({ days_left: 2, on_track: true, behind_by: 0, spare_days: 0, line: "On track" });
+    expect(pace(long, plan, MON)).toMatchObject({ days_left: 5, spare_days: 3 });
+  });
+
+  it("after the first of today's two lessons, today still counts for the second", () => {
+    // Thursday, exam on Saturday: two study days of two lessons each for the 3 lessons left.
+    const start = placed(MON, profile({ deadline: "2026-11-21", minutes_per_day: 30 }));
+    expect(pace(start, plan, THU)).toMatchObject({ lessons_left: 3, days_left: 2, on_track: true, spare_days: 0 });
+    const one = study(start, THU).record;
+    expect(pace(one, plan, THU)).toMatchObject({ lessons_left: 2, days_left: 2, on_track: true, spare_days: 0, line: "On track" });
+    const two = study(one, THU).record;
+    expect(pace(two, plan, THU)).toMatchObject({ lessons_left: 1, days_left: 1, on_track: true, spare_days: 0 });
+
+    // Friday, the last study day: 3 lessons do not fit into 2, and each lesson done brings the gap down by one.
+    expect(pace(start, plan, "2026-11-20")).toMatchObject({ behind_by: 1, spare_days: -1 });
+    const friday = study(start, "2026-11-20").record;
+    expect(pace(friday, plan, "2026-11-20")).toMatchObject({ lessons_left: 2, days_left: 1, behind_by: 1 });
+    expect(pace(study(friday, "2026-11-20").record, plan, "2026-11-20")).toMatchObject({ lessons_left: 1, days_left: 0, behind_by: 1 });
   });
 });
 
@@ -449,6 +557,20 @@ describe("locked lessons", () => {
     let r = placed();
     for (const day of [MON, TUE, WED]) r = study(r, day).record;
     expect(lessonStates(r, plan, THU).map((i) => i.state)).toEqual(["known", "done", "done", "done"]);
+  });
+
+  it("planned dates put two lessons on a day when the session holds two", () => {
+    const r = placed(MON, profile({ minutes_per_day: 30 }));
+    const items = lessonStates(r, plan, MON);
+    expect(items.slice(1).map((i) => i.date)).toEqual([MON, MON, TUE]);
+    expect(items.slice(1).map((i) => i.minutes)).toEqual([15, 15, 15]);
+    // After the first of today's two lessons, the second is still planned for today.
+    const one = study(r, MON).record;
+    expect(lessonStates(one, plan, MON).slice(2).map((i) => i.date)).toEqual([MON, TUE]);
+    // Today's choice decides today; later days follow the profile.
+    expect(lessonStates(r, plan, MON, 15).slice(1).map((i) => i.date)).toEqual([MON, TUE, TUE]);
+    expect(lessonStates(placed(), plan, MON, 30).slice(1).map((i) => i.date)).toEqual([MON, MON, TUE]);
+    expect(lessonStates(placed(), plan, MON, 30)[1]).toMatchObject({ state: "next", minutes: 15 });
   });
 
   it("only covered units can be re-read", () => {

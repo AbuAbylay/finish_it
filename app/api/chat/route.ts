@@ -8,10 +8,12 @@ import { isAiError } from "@/lib/types";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+const RECENT_TURNS = 12;
+
 const bodySchema = z.object({
   lesson_key: z.string().min(1),
   question: z.string().trim().min(1).max(1000),
-  history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) })).max(20).default([]),
+  history: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(4000) })).max(200).default([]),
 });
 
 /** Side chat about the open lesson (off the critical path). */
@@ -24,7 +26,8 @@ export const POST = route(async (req) => {
   await assertUnderCaps(ctx.learnerId, clientIp(req));
   // Until the lesson is graded, the model never sees the questions or their answer key.
   const lesson = row.result ? row.lesson : { ...row.lesson, quiz: [], review_quiz: [] };
-  const answer = await sideChat(lesson, row.order.unit.excerpt, body.data.history, body.data.question);
+  // A long conversation is welcome; only its last turns go to the model.
+  const answer = await sideChat(lesson, row.order.unit.excerpt, body.data.history.slice(-RECENT_TURNS), body.data.question);
   await recordGeneration(ctx.learnerId, clientIp(req), "chat", !isAiError(answer));
   if (isAiError(answer)) {
     console.error("sideChat failed:", answer.error, answer.detail ?? "");

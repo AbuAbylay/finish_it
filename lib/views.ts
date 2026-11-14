@@ -7,9 +7,12 @@ import {
   CATCH_UP_MAX_MINUTES,
   calendar,
   currentStreak,
+  lessonMinutes,
   pace,
   pickNext,
   reminderToday,
+  sessionLength,
+  sessionPlan,
   type Pace,
   type ReminderType,
 } from "./rules";
@@ -18,16 +21,15 @@ import { WEEKDAYS, type CoursePlan, type LearnerRecord, type Profile } from "./t
 /** The pace sentence as shown on the plan page (wording in lib/content.ts). */
 function paceText(p: Pace): string {
   if (p.lessons_left === 0) return copy.pace.finished;
-  const spare = p.days_left - p.lessons_left;
-  if (p.on_track && spare > 0) return copy.pace.onTrackSpare(p.lessons_left, p.days_left, spare);
+  if (p.on_track && p.spare_days > 0) return copy.pace.onTrackSpare(p.lessons_left, p.days_left, p.spare_days);
   if (p.on_track) return copy.pace.onTrackExact;
   return copy.pace.behind(p.behind_by, p.lessons_left, p.days_left);
 }
 
-type SetUp = { record: LearnerRecord & { profile: Profile }; plan: CoursePlan; today: string };
+type SetUp = { record: LearnerRecord & { profile: Profile }; plan: CoursePlan; today: string; minutesToday?: number | null };
 
-export function planView({ record, plan, today }: SetUp) {
-  const next = pickNext(record, plan, today);
+export function planView({ record, plan, today, minutesToday = null }: SetUp) {
+  const next = pickNext(record, plan, today, minutesToday);
   // Five calendar weeks starting on the Monday two weeks before this week.
   const monday = addDays(today, -WEEKDAYS.indexOf(weekdayOf(today)));
   const from = addDays(monday, -14);
@@ -37,6 +39,9 @@ export function planView({ record, plan, today }: SetUp) {
     course_title: record.profile.course_title || plan.title,
     deadline: record.profile.deadline,
     minutes_per_day: record.profile.minutes_per_day,
+    /** Length of one lesson at the learner's usual session length (a session of 25 minutes or more holds two). */
+    lesson_minutes: lessonMinutes(sessionLength(record)),
+    session: sessionPlan(record, today, minutesToday),
     pace: pace(record, plan, today),
     streak: currentStreak(record, today),
     sessions_done: record.sessions.length,
@@ -69,8 +74,8 @@ export function planView({ record, plan, today }: SetUp) {
   };
 }
 
-export async function reminderView({ record, plan, today }: SetUp, link: string) {
-  const next = pickNext(record, plan, today);
+export async function reminderView({ record, plan, today, minutesToday = null }: SetUp, link: string) {
+  const next = pickNext(record, plan, today, minutesToday);
   const p = pace(record, plan, today);
   const unitTitle = next.kind === "lesson" ? next.order.unit.title : plan.title;
   const base = {
@@ -82,9 +87,10 @@ export async function reminderView({ record, plan, today }: SetUp, link: string)
     goal: record.profile.goal,
     link,
   };
+  // Planned day: the whole session. Missed day: the catch-up lesson, never longer than 10 minutes.
   const minutes: Record<ReminderType, number> = {
-    planned_day: record.profile.minutes_per_day,
-    missed_day: Math.min(record.profile.minutes_per_day, CATCH_UP_MAX_MINUTES),
+    planned_day: sessionLength(record, minutesToday),
+    missed_day: Math.min(lessonMinutes(sessionLength(record)), CATCH_UP_MAX_MINUTES),
   };
   const emails = {} as Record<ReminderType, Email>;
   for (const type of ["planned_day", "missed_day"] as const) {

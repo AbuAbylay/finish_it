@@ -50,7 +50,7 @@ function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; 
     .map((d) => copy.survey.days[d])
     .join(", ");
   const knownLine = t.known(known, plan.units_total);
-  const lessonsLine = t.lessons(plan.pace.lessons_left, plan.minutes_per_day, studyDays);
+  const lessonsLine = t.lessons(plan.pace.lessons_left, plan.lesson_minutes, studyDays);
   return (
     <div className="mx-auto max-w-reading space-y-6">
       <h1 className="text-h1 text-ink">{t.planTitle(shortDate(plan.deadline))}</h1>

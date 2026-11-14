@@ -17,7 +17,8 @@ export const GET = route(async (req) => {
     login_id: await displayId(learnerId),
     client_key: clientKey(learnerId),
     ai: aiImplementation(),
-    sample: record?.course_plan_id === sample.id ? sample.source : null,
+    // An ID that started on an earlier version of the sample keeps that plan; it is still the sample, not an upload.
+    sample: record?.course_plan_id === sample.id ? sample.source : record?.course_plan_id?.startsWith("sample-") ? "dev" : null,
     profile: record?.profile ?? null,
     course: plan ? { title: plan.title, units: plan.units.map((u) => ({ unit_id: u.unit_id, title: u.title })) } : null,
   });

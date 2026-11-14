@@ -8,8 +8,8 @@ export function paceSentence(p: Pace): { status: string; rest: string; behind: b
   if (p.lessons_left === 0) return { status: p.line, rest: copy.pace.finished.replace(/^Course finished\.\s*/, ""), behind: false, finished: true };
   const sentence = !p.on_track
     ? copy.pace.behind(p.behind_by, p.lessons_left, p.days_left)
-    : p.days_left - p.lessons_left > 0
-      ? copy.pace.onTrackSpare(p.lessons_left, p.days_left, p.days_left - p.lessons_left)
+    : p.spare_days > 0
+      ? copy.pace.onTrackSpare(p.lessons_left, p.days_left, p.spare_days)
       : copy.pace.onTrackExact;
   const cut = sentence.indexOf(". ");
   return {
