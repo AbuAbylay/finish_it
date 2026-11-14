@@ -1,0 +1,30 @@
+import { answersSchema, issues } from "@/lib/contracts";
+import { saveLearner } from "@/lib/db";
+import { gradePlacement } from "@/lib/rules";
+import { HttpError, context, json, publicQuestion, readJson, requireSetUp, route } from "@/lib/server";
+
+export const dynamic = "force-dynamic";
+
+/** The five short-test questions, without answers. */
+export const GET = route(async (req) => {
+  const { plan } = requireSetUp(await context(req));
+  return json({ questions: plan.placement_test.map(publicQuestion) });
+});
+
+/** Grades the short test and writes the initial unit statuses. Allowed until the first lesson is done. */
+export const POST = route(async (req) => {
+  const ctx = requireSetUp(await context(req));
+  if (ctx.record.sessions.length > 0) throw new HttpError(409, "The short test is only taken once, before the first lesson.", "already_started");
+  const body = (await readJson(req)) as { answers?: unknown };
+  const answers = answersSchema.safeParse(body.answers ?? {});
+  if (!answers.success) throw new HttpError(400, `Invalid answers: ${issues(answers.error)}`, "bad_answers");
+
+  const { record, results } = gradePlacement(ctx.record, ctx.plan, answers.data, ctx.today);
+  await saveLearner(record);
+  const titles = new Map(ctx.plan.units.map((u) => [u.unit_id, u.title]));
+  return json({
+    results: results.map((r) => ({ ...r, unit_title: titles.get(r.unit_id) ?? r.unit_id })),
+    known: ctx.plan.units.filter((u) => record.units[u.unit_id]?.status === "known").map((u) => u.title),
+    lessons_left: ctx.plan.units.filter((u) => record.units[u.unit_id]?.status !== "known").length,
+  });
+});

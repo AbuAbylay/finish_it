@@ -1,0 +1,68 @@
+// Read models for the plan page and the reminder preview, built from the record with the §5 rules.
+import "server-only";
+import { addDays, weekdayOf } from "./dates";
+import { renderReminder, type Email } from "./reminders";
+import {
+  CATCH_UP_MAX_MINUTES,
+  calendar,
+  currentStreak,
+  pace,
+  pickNext,
+  reminderToday,
+  type ReminderType,
+} from "./rules";
+import { WEEKDAYS, type CoursePlan, type LearnerRecord, type Profile } from "./types";
+
+type SetUp = { record: LearnerRecord & { profile: Profile }; plan: CoursePlan; today: string };
+
+export function planView({ record, plan, today }: SetUp) {
+  const next = pickNext(record, plan, today);
+  // Five calendar weeks starting on the Monday two weeks before this week.
+  const monday = addDays(today, -WEEKDAYS.indexOf(weekdayOf(today)));
+  const from = addDays(monday, -14);
+  return {
+    today,
+    demo_day_offset: record.demo_day_offset,
+    course_title: record.profile.course_title || plan.title,
+    deadline: record.profile.deadline,
+    minutes_per_day: record.profile.minutes_per_day,
+    pace: pace(record, plan, today),
+    streak: currentStreak(record, today),
+    sessions_done: record.sessions.length,
+    studied_today: record.sessions.some((s) => s.date === today),
+    units: plan.units.map((u) => ({
+      unit_id: u.unit_id,
+      title: u.title,
+      status: record.units[u.unit_id]?.status ?? "todo",
+      score: record.units[u.unit_id]?.score ?? null,
+    })),
+    calendar: calendar(record, today, from, addDays(from, 34)),
+    next:
+      next.kind === "finished"
+        ? null
+        : { mode: next.order.mode, minutes: next.order.minutes, unit_title: next.order.unit.title, why: next.order.why },
+    reminder_today: reminderToday(record, today),
+  };
+}
+
+export async function reminderView({ record, plan, today }: SetUp, link: string) {
+  const next = pickNext(record, plan, today);
+  const p = pace(record, plan, today);
+  const unitTitle = next.kind === "lesson" ? next.order.unit.title : plan.title;
+  const base = {
+    course_title: record.profile.course_title || plan.title,
+    unit_title: unitTitle,
+    lessons_left: p.lessons_left,
+    days_left: p.days_left,
+    link,
+  };
+  const minutes: Record<ReminderType, number> = {
+    planned_day: record.profile.minutes_per_day,
+    missed_day: Math.min(record.profile.minutes_per_day, CATCH_UP_MAX_MINUTES),
+  };
+  const emails = {} as Record<ReminderType, Email>;
+  for (const type of ["planned_day", "missed_day"] as const) {
+    emails[type] = await renderReminder(type, record.profile.blocker, { ...base, minutes: minutes[type] });
+  }
+  return { today, today_type: reminderToday(record, today), blocker: record.profile.blocker, emails };
+}
