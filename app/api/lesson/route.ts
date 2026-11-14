@@ -1,7 +1,8 @@
 import { writeLesson } from "@/ai";
 import { parseLesson } from "@/lib/contracts";
-import { loadLesson, saveLesson, type LessonRow } from "@/lib/db";
-import { pickNext, placementDone } from "@/lib/rules";
+import { latestGradedLesson, loadLesson, saveLesson, type LessonRow } from "@/lib/db";
+import { assertLessonOpen, lockedError } from "@/lib/locks";
+import { canReread, lessonStateOf, pickNext, placementDone } from "@/lib/rules";
 import {
   HttpError,
   clientIp,
@@ -31,23 +32,45 @@ async function generate(key: string, learnerId: string, ip: string, order: Order
     throw new HttpError(502, "The lesson came back in an unexpected shape. Please try again.", "ai_error");
   }
   await saveLesson(key, learnerId, order, parsed.lesson);
-  return { lesson_key: key, learner_id: learnerId, order, lesson: parsed.lesson, result: null };
+  return { lesson_key: key, learner_id: learnerId, order, lesson: parsed.lesson, result: null, answers: {} };
 }
 
 /**
- * GET /api/lesson         -> picks the next unit, returns the cached lesson or writes a new one.
- * GET /api/lesson?key=... -> a lesson this learner already has (with its result once graded).
+ * GET /api/lesson            -> the open lesson (picks the next unit; cached or newly written).
+ * GET /api/lesson?unit=u03   -> the open lesson if u03 is open; a read-only view if u03 is done or known;
+ *                               403 "locked" otherwise.
+ * GET /api/lesson?key=...    -> a lesson this learner already has: graded ones always, ungraded ones only while open.
  */
 export const GET = route(async (req) => {
   const ctx = requireSetUp(await context(req));
+  if (!placementDone(ctx.record)) throw new HttpError(409, "Take the short test first.", "no_placement");
+
   const key = req.nextUrl.searchParams.get("key");
   if (key) {
     const row = await loadLesson(key);
     if (!row || row.learner_id !== ctx.learnerId) throw new HttpError(404, "Lesson not found.", "not_found");
-    return json(presentLesson(row.lesson_key, row.order, row.lesson, row.result));
+    if (!row.result) assertLessonOpen(ctx, row);
+    return json(presentLesson(row.lesson_key, row.order, row.lesson, row.result, row.answers));
   }
 
-  if (!placementDone(ctx.record)) throw new HttpError(409, "Take the short test first.", "no_placement");
+  const unitId = req.nextUrl.searchParams.get("unit");
+  if (unitId) {
+    const state = lessonStateOf(ctx.record, ctx.plan, ctx.today, unitId);
+    if (state === null) throw new HttpError(404, "There is no such unit in your course.", "not_found");
+    if (state === "locked") throw lockedError(ctx, unitId);
+    if (canReread(state)) {
+      const unit = ctx.plan.units.find((u) => u.unit_id === unitId)!;
+      const past = await latestGradedLesson(ctx.learnerId, unitId);
+      return json({
+        reread: true,
+        state,
+        unit: { unit_id: unit.unit_id, title: unit.title, objective: unit.objective, excerpt: unit.excerpt },
+        lesson: past ? presentLesson(past.lesson_key, past.order, past.lesson, past.result, past.answers) : null,
+      });
+    }
+    // state === "next": fall through to the open lesson.
+  }
+
   const next = pickNext(ctx.record, ctx.plan, ctx.today);
   if (next.kind === "finished") return json({ finished: true });
 
@@ -63,5 +86,5 @@ export const GET = route(async (req) => {
     row = await pending;
   }
   // The cached content is keyed by unit, mode and review concepts; the why line is always today's.
-  return json(presentLesson(row.lesson_key, { ...row.order, why: order.why }, row.lesson, row.result));
+  return json(presentLesson(row.lesson_key, { ...row.order, why: order.why }, row.lesson, row.result, row.answers));
 });

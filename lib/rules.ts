@@ -6,6 +6,7 @@ import {
   isIsoDate,
   isStudyDay,
   nextStudyDay,
+  shortDate,
   studyDaysStrictlyBetween,
 } from "./dates";
 import {
@@ -126,6 +127,11 @@ function gradeQuestion(q: Question, answers: Answers): QuestionResult {
   };
 }
 
+/** Feedback for one answered question (used when questions are checked one at a time). */
+export function checkAnswer(q: Question, chosen: number): QuestionResult {
+  return gradeQuestion(q, { [q.question_id]: chosen });
+}
+
 /** Correct answers / total answers. An empty quiz gives 0: a unit is `done` only on quiz evidence. */
 export function scoreOf(results: QuestionResult[]): number {
   if (results.length === 0) return 0;
@@ -200,13 +206,19 @@ export interface PlacementResult {
 
 /**
  * Short test. A correct answer sets that unit to `known`; every other unit is `todo`.
+ * Units the learner chose to skip in the survey (profile.skip, by unit title) are `known` too.
  * Units the test asked about get last_seen = today (that marks the test as taken).
  * Wrong answers do not create missed_concepts: those units are `todo` and will be taught in full,
  * and reviewing a concept before its unit is taught would crowd out real lesson misses.
  */
 export function gradePlacement(record: LearnerRecord, plan: CoursePlan, answers: Answers, today: string): PlacementResult {
+  const skipped = new Set((record.profile?.skip ?? []).map(norm));
   const units: Record<string, UnitState> = {};
-  for (const u of plan.units) units[u.unit_id] = { status: "todo", score: null, last_seen: null };
+  for (const u of plan.units) {
+    units[u.unit_id] = skipped.has(norm(u.title))
+      ? { status: "known", score: null, last_seen: today }
+      : { status: "todo", score: null, last_seen: null };
+  }
 
   const results = plan.placement_test.map((q) => ({ ...gradeQuestion(q, answers), unit_id: q.unit_id }));
   for (const r of results) {
@@ -300,34 +312,21 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string)
   let mode: Mode;
   let unit: Unit;
   let minutes = profileMinutes;
-  let branchWhy: string;
 
   if (lastUnit && missedDays.length > 0) {
     // Rule 1: planned study days were missed since last_active.
     mode = "catch_up";
     unit = lastUnit;
     minutes = Math.min(profileMinutes, CATCH_UP_MAX_MINUTES);
-    const n = missedDays.length;
-    branchWhy = `You missed ${n} planned study day${n === 1 ? "" : "s"}, so today is a ${minutes}-minute catch-up on “${unit.title}”.`;
   } else if (lastUnit && unitStatus(record, lastUnit.unit_id) === "needs_review") {
     // Rule 2: the last unit needs another pass.
     mode = "review";
     unit = lastUnit;
-    branchWhy = `You scored ${pct(last?.score ?? 0)} on “${unit.title}” last time, so today teaches it again with a new example.`;
   } else {
-    // Rule 3: first unit in plan order still to learn.
+    // Rule 3: first unit in plan order still to learn; a pending review comes first if no todo is left.
     const todo = plan.units.find((u) => unitStatus(record, u.unit_id) === "todo");
-    if (todo) {
-      mode = "new";
-      unit = todo;
-      branchWhy = newUnitWhy(record, plan, unit, lastUnit);
-    } else {
-      // Only needs_review units remain (and the last session was on another unit).
-      const pending = plan.units.find((u) => unitStatus(record, u.unit_id) === "needs_review") as Unit;
-      mode = "review";
-      unit = pending;
-      branchWhy = `“${unit.title}” still needs another pass, so today goes over it again.`;
-    }
+    mode = todo ? "new" : "review";
+    unit = todo ?? (plan.units.find((u) => unitStatus(record, u.unit_id) === "needs_review") as Unit);
   }
 
   // Rule 4: up to two concepts that are due.
@@ -338,8 +337,7 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string)
     .map((m) => ({ concept: m.concept, unit_id: m.unit_id, excerpt: (byId.get(m.unit_id) as Unit).excerpt }));
 
   // Rule 5: the why line, from the branch taken and the review concepts.
-  const reviewWhy = reviewSentence(record, review_concepts);
-  const why = mode === "catch_up" || !reviewWhy ? [branchWhy, reviewWhy].filter(Boolean).join(" ") : `${reviewWhy} ${branchWhy}`;
+  const why = whyLine({ record, plan, today, mode, unit, minutes, review_concepts, missedDays: missedDays.length, lastScore: last?.score ?? 0 });
 
   return {
     kind: "lesson",
@@ -358,37 +356,124 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string)
   };
 }
 
-function pct(score: number): string {
-  return `${Math.round(score * 100)}%`;
-}
+/** Quiz length from PROJECT §4.4, used to turn a stored score back into "x of 3". */
+const QUIZ_LENGTH = 3;
 
-function newUnitWhy(record: LearnerRecord, plan: CoursePlan, unit: Unit, lastUnit: Unit | undefined): string {
-  if (lastUnit && unitStatus(record, lastUnit.unit_id) === "done") {
-    return `You passed “${lastUnit.title}”, so today moves on to “${unit.title}”.`;
+const quoted = (concepts: ReviewConcept[]) => concepts.map((c) => `“${c.concept}”`).join(" and ");
+
+/**
+ * Why lines, from COPY.md. **bold** marks the unit title; the page renders it.
+ * "You missed ... last time" is used only for concepts missed in the latest attempt (interval_step 0);
+ * concepts on a spaced review get a neutral line so the sentence stays true.
+ */
+function whyLine(a: {
+  record: LearnerRecord;
+  plan: CoursePlan;
+  today: string;
+  mode: Mode;
+  unit: Unit;
+  minutes: number;
+  review_concepts: ReviewConcept[];
+  missedDays: number;
+  lastScore: number;
+}): string {
+  const title = `**${a.unit.title}**`;
+  const step = (rc: ReviewConcept) => a.record.missed_concepts.find((m) => sameConcept(m, rc))?.interval_step ?? 0;
+  const reviews = a.review_concepts;
+  const allFresh = reviews.length > 0 && reviews.every((rc) => step(rc) === 0);
+  const startsWithReview = reviews.length === 0 ? "" : ` It starts with a quick review of ${quoted(reviews)}.`;
+
+  if (a.mode === "catch_up") {
+    const n = a.missedDays;
+    return `You missed ${n} planned day${n === 1 ? "" : "s"}. Here's a shorter ${a.minutes}-minute recap of ${title} to get you back in.${startsWithReview}`;
   }
-  if (record.sessions.length === 0) {
-    const known = plan.units.filter((u) => unitStatus(record, u.unit_id) === "known").length;
-    if (known > 0) {
-      return `Your short test showed you already know ${known} unit${known === 1 ? "" : "s"}, so you start at “${unit.title}”.`;
+  if (a.mode === "review") {
+    const last = a.record.sessions.at(-1);
+    if (last && last.unit_id === a.unit.unit_id) {
+      const correct = Math.round(a.lastScore * QUIZ_LENGTH);
+      return `Last time you got ${correct} of ${QUIZ_LENGTH} on ${title}. Today goes over it again in a different way.${startsWithReview}`;
     }
-    return `You start at the beginning: “${unit.title}”.`;
+    return `${title} still needs another pass. Today goes over it again in a different way.${startsWithReview}`;
   }
-  return `Next up: “${unit.title}”.`;
+  // mode "new"
+  if (a.record.sessions.length === 0) return `Today starts your plan: ${title}.`;
+  if (reviews.length === 0) {
+    const p = pace(a.record, a.plan, a.today);
+    const deadline = a.record.profile?.deadline;
+    return p.on_track && deadline ? `Next up: ${title}. You're on track for ${shortDate(deadline)}.` : `Next up: ${title}.`;
+  }
+  if (allFresh && reviews.length === 1) {
+    return `You missed “${reviews[0].concept}” last time, so today starts with a quick review, then ${title}.`;
+  }
+  if (allFresh) return `You missed ${quoted(reviews)} earlier, so today starts with a quick review, then ${title}.`;
+  return `Today starts with a quick review of ${quoted(reviews)}, so it sticks, then ${title}.`;
 }
 
-function reviewSentence(record: LearnerRecord, concepts: ReviewConcept[]): string {
-  if (concepts.length === 0) return "";
-  const entry = (rc: ReviewConcept) => record.missed_concepts.find((m) => sameConcept(m, rc));
-  const missed = concepts.filter((rc) => (entry(rc)?.interval_step ?? 0) === 0).map((rc) => `“${rc.concept}”`);
-  const spaced = concepts.filter((rc) => (entry(rc)?.interval_step ?? 0) > 0).map((rc) => `“${rc.concept}”`);
-  const parts: string[] = [];
-  if (missed.length > 0) {
-    parts.push(`You missed ${missed.join(" and ")}, so today's quiz brings ${missed.length === 1 ? "it" : "them"} back.`);
-  }
-  if (spaced.length > 0) {
-    parts.push(`${spaced.join(" and ")} ${spaced.length === 1 ? "is" : "are"} due for a spaced review.`);
-  }
-  return parts.join(" ");
+// ---------------------------------------------------------------------------
+// Locked lessons
+// ---------------------------------------------------------------------------
+
+/**
+ * Lesson states for the lessons page and for server-side locking.
+ * - next: the one unit pickNext returns. Only it can be studied and graded.
+ * - done / known: open for re-reading; re-reading never changes the record.
+ * - needs_review: failed earlier and not the current lesson (re-readable).
+ * - locked: everything else, until the open lesson is passed.
+ */
+export type LessonState = "done" | "known" | "needs_review" | "next" | "locked";
+
+export interface LessonListItem {
+  unit_id: string;
+  title: string;
+  objective: string;
+  state: LessonState;
+  /** Set for the open lesson only. */
+  mode: Mode | null;
+  minutes: number;
+  /** studied: last session on the unit; tested: short test or skip; planned: projected study day. */
+  date: string | null;
+  date_kind: "studied" | "tested" | "planned" | null;
+  score: number | null;
+}
+
+export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: string): LessonListItem[] {
+  const next = pickNext(record, plan, today);
+  const open = next.kind === "lesson" ? next.order : null;
+  const studyDays = studyDaysOf(record.profile);
+  const minutes = record.profile?.minutes_per_day ?? DEFAULT_MINUTES;
+  const studiedToday = record.sessions.some((s) => s.date === today);
+  let planned = studiedToday ? nextStudyDay(today, studyDays) : today;
+
+  return plan.units.map((u) => {
+    const unitState = record.units[u.unit_id];
+    const status = unitState?.status ?? "todo";
+    const lastSession = record.sessions.filter((s) => s.unit_id === u.unit_id).at(-1);
+    const base = { unit_id: u.unit_id, title: u.title, objective: u.objective, score: unitState?.score ?? null };
+
+    if (open && open.unit.unit_id === u.unit_id) {
+      const item: LessonListItem = { ...base, state: "next", mode: open.mode, minutes: open.minutes, date: planned, date_kind: "planned" };
+      planned = nextStudyDay(planned, studyDays);
+      return item;
+    }
+    if (status === "todo") {
+      const item: LessonListItem = { ...base, state: "locked", mode: null, minutes, date: open ? planned : null, date_kind: open ? "planned" : null };
+      if (open) planned = nextStudyDay(planned, studyDays);
+      return item;
+    }
+    const state: LessonState = status === "known" ? "known" : status === "done" ? "done" : "needs_review";
+    const date = lastSession?.date ?? unitState?.last_seen ?? null;
+    const date_kind = lastSession ? "studied" : date ? "tested" : null;
+    return { ...base, state, mode: null, minutes, date, date_kind };
+  });
+}
+
+export function lessonStateOf(record: LearnerRecord, plan: CoursePlan, today: string, unitId: string): LessonState | null {
+  return lessonStates(record, plan, today).find((i) => i.unit_id === unitId)?.state ?? null;
+}
+
+/** Re-reading is allowed for units already covered; it never changes the record. */
+export function canReread(state: LessonState | null): boolean {
+  return state === "done" || state === "known" || state === "needs_review";
 }
 
 // ---------------------------------------------------------------------------

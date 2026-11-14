@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { addDays, countStudyDays, nextStudyDay, studyDaysStrictlyBetween, today, weekdayOf } from "@/lib/dates";
 import {
   calendar,
+  canReread,
+  lessonStates,
   currentStreak,
   gradeLesson,
   gradePlacement,
@@ -217,7 +219,7 @@ describe("picker", () => {
     const order = orderOf(pickNext(placed(), plan, MON));
     expect(order).toMatchObject({ mode: "new", minutes: 15, review_concepts: [] });
     expect(order.unit.unit_id).toBe("u02");
-    expect(order.why).toContain("already know 1 unit");
+    expect(order.why).toBe("Today starts your plan: **Unit u02**.");
     expect(order.learner.goal).toBe("Get promoted");
   });
 
@@ -226,7 +228,7 @@ describe("picker", () => {
     const order = orderOf(pickNext(r, plan, MON));
     expect(order.mode).toBe("new");
     expect(order.unit.unit_id).toBe("u03");
-    expect(order.why).toContain("You passed “Unit u02”");
+    expect(order.why).toBe("Next up: **Unit u03**. You're on track for Thu 31 Dec.");
   });
 
   it("review: the last unit is needs_review, same unit again", () => {
@@ -234,7 +236,7 @@ describe("picker", () => {
     const order = orderOf(pickNext(r, plan, TUE));
     expect(order.mode).toBe("review");
     expect(order.unit.unit_id).toBe("u02");
-    expect(order.why).toContain("You scored 0%");
+    expect(order.why).toBe("Last time you got 0 of 3 on **Unit u02**. Today goes over it again in a different way. It starts with a quick review of “alpha” and “beta”.");
   });
 
   it("catch_up: a planned study day was missed, last unit, at most 10 minutes", () => {
@@ -243,7 +245,7 @@ describe("picker", () => {
     expect(order.mode).toBe("catch_up");
     expect(order.minutes).toBe(10);
     expect(order.unit.unit_id).toBe("u02");
-    expect(order.why).toMatch(/^You missed 1 planned study day, so today is a 10-minute catch-up/);
+    expect(order.why).toBe("You missed 1 planned day. Here's a shorter 10-minute recap of **Unit u02** to get you back in.");
   });
 
   it("no catch_up when only rest days passed", () => {
@@ -262,7 +264,7 @@ describe("picker", () => {
     expect(orderOf(pickNext(r, plan, MON)).review_concepts).toEqual([]); // not due yet today
     const order = orderOf(pickNext(r, plan, TUE));
     expect(order.review_concepts).toEqual([{ concept: "beta", unit_id: "u02", excerpt: "Excerpt for u02." }]);
-    expect(order.why).toMatch(/^You missed “beta”, so today's quiz brings it back\./);
+    expect(order.why).toBe("You missed “beta” last time, so today starts with a quick review, then **Unit u03**.");
   });
 
   it("adds at most two due concepts: earliest due first, then most missed", () => {
@@ -277,7 +279,7 @@ describe("picker", () => {
   it("spaced reviews are worded differently from fresh misses", () => {
     let r = study(placed(), MON, ["q2"]).record;
     r = study(r, TUE).record; // beta -> step 1, due WED
-    expect(orderOf(pickNext(r, plan, WED)).why).toContain("“beta” is due for a spaced review.");
+    expect(orderOf(pickNext(r, plan, WED)).why).toBe("Today starts with a quick review of “beta”, so it sticks, then **Unit u04**.");
   });
 
   it("falls back to an earlier needs_review unit when no todo unit is left", () => {
@@ -372,5 +374,87 @@ describe("calendar", () => {
     expect(days.map((d) => d.status)).toEqual(["rest", "done", "missed", "planned", "planned", "rest", "rest"]);
     expect(days.find((d) => d.is_today)?.date).toBe(WED);
     expect(days.find((d) => d.is_deadline)?.date).toBe("2026-11-20");
+  });
+});
+
+describe("why lines (COPY.md)", () => {
+  it("only claims 'on track' when the pace line says so", () => {
+    const r = study(placed(MON, profile({ deadline: TUE })), MON).record; // 2 lessons left, 0 study days
+    expect(orderOf(pickNext(r, plan, MON)).why).toBe("Next up: **Unit u03**.");
+  });
+
+  it("names two fresh misses as 'earlier'", () => {
+    const r = study(placed(), MON, ["q1", "q2"]).record; // u02 needs_review; alpha, beta due TUE
+    const r2 = { ...r, units: { ...r.units, u02: { status: "done" as const, score: 1, last_seen: MON } } };
+    expect(orderOf(pickNext(r2, plan, TUE)).why).toBe("You missed “alpha” and “beta” earlier, so today starts with a quick review, then **Unit u03**.");
+  });
+
+  it("catch-up says how many planned days were missed and names due reviews", () => {
+    const r = study(placed(), MON, ["q3"]).record;
+    expect(orderOf(pickNext(r, plan, THU)).why).toBe(
+      "You missed 2 planned days. Here's a shorter 10-minute recap of **Unit u02** to get you back in. It starts with a quick review of “gamma”.",
+    );
+  });
+});
+
+describe("survey skip", () => {
+  it("units the learner skips in the survey start as known", () => {
+    const r = { ...startCourse(newRecord("l1"), "test", plan), profile: profile({ skip: ["Unit u03 "] }) };
+    const out = gradePlacement(r, plan, { p01: 1, p02: 1, p03: 1 }, MON).record;
+    expect(out.units.u03).toEqual({ status: "known", score: null, last_seen: MON });
+    expect(out.units.u01.status).toBe("todo");
+    expect(orderOf(pickNext(out, plan, MON)).unit.unit_id).toBe("u01");
+  });
+});
+
+describe("locked lessons", () => {
+  const states = (r: LearnerRecord, day: string) => lessonStates(r, plan, day).map((i) => `${i.unit_id}:${i.state}`);
+
+  it("after the short test: known stays open to re-read, one unit is next, the rest are locked", () => {
+    const items = lessonStates(placed(), plan, MON);
+    expect(items.map((i) => i.state)).toEqual(["known", "next", "locked", "locked"]);
+    expect(items[1]).toMatchObject({ mode: "new", minutes: 15, date: MON, date_kind: "planned" });
+    expect(items.slice(2).map((i) => i.date)).toEqual([TUE, WED]);
+    expect(items[0]).toMatchObject({ date: MON, date_kind: "tested", mode: null });
+    expect(items.filter((i) => i.state === "next")).toHaveLength(1);
+  });
+
+  it("passing the open lesson unlocks the next unit", () => {
+    const r = study(placed(), MON).record;
+    expect(states(r, MON)).toEqual(["u01:known", "u02:done", "u03:next", "u04:locked"]);
+    const items = lessonStates(r, plan, MON);
+    expect(items[1]).toMatchObject({ date: MON, date_kind: "studied" });
+    expect(items[2].date).toBe(TUE); // studied today, so the next lesson is planned for the next study day
+  });
+
+  it("failing keeps the same unit open as a review; later units stay locked", () => {
+    const r = study(placed(), MON, ["q1", "q2"]).record;
+    expect(states(r, TUE)).toEqual(["u01:known", "u02:next", "u03:locked", "u04:locked"]);
+    expect(lessonStates(r, plan, TUE)[1].mode).toBe("review");
+  });
+
+  it("after missed days the catch-up unit is the open one, even when it was done", () => {
+    const r = study(placed(), MON).record;
+    expect(states(r, WED)).toEqual(["u01:known", "u02:next", "u03:locked", "u04:locked"]);
+    expect(lessonStates(r, plan, WED)[1]).toMatchObject({ mode: "catch_up", minutes: 10 });
+  });
+
+  it("after passing the catch-up, the next unit unlocks", () => {
+    let r = study(placed(), MON).record;
+    r = study(r, WED).record; // catch_up on u02, passed
+    expect(states(r, WED)).toEqual(["u01:known", "u02:done", "u03:next", "u04:locked"]);
+  });
+
+  it("finish state: nothing is next or locked", () => {
+    let r = placed();
+    for (const day of [MON, TUE, WED]) r = study(r, day).record;
+    expect(lessonStates(r, plan, THU).map((i) => i.state)).toEqual(["known", "done", "done", "done"]);
+  });
+
+  it("only covered units can be re-read", () => {
+    expect(["done", "known", "needs_review"].every((s) => canReread(s as never))).toBe(true);
+    expect(canReread("locked")).toBe(false);
+    expect(canReread("next")).toBe(false);
+    expect(canReread(null)).toBe(false);
   });
 });

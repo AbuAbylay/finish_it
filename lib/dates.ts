@@ -80,3 +80,12 @@ export function countStudyDays(from: string, to: string, studyDays: readonly Wee
   }
   return n;
 }
+
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "Sun 29 Nov", the short date used in why lines and reminders. */
+export function shortDate(date: string): string {
+  const d = new Date(toMs(date));
+  return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]}`;
+}
