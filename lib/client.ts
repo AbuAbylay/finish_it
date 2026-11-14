@@ -1,38 +1,16 @@
 "use client";
-// Browser side: guest identity and the API wrapper. Every API call sends the learner id and time zone.
+// Browser side: the API wrapper, drafts, stable shuffles and the demo day-change signal.
+// Identity is a session cookie handled by the server (lib/identity.ts); pages never see or send the ID.
 
-const ID_KEY = "fic_learner_id";
-let memoryId: string | null = null;
+let clientKeyValue = "anon";
 
-function newId(): string {
-  return crypto.randomUUID();
+/** Set from /api/me so drafts and shuffles are per learner without exposing the ID. */
+export function setClientKey(key: string): void {
+  clientKeyValue = key;
 }
 
-/** The guest learner id, created on first visit and kept in localStorage. */
-export function learnerId(): string {
-  try {
-    let id = localStorage.getItem(ID_KEY);
-    if (!id) {
-      id = newId();
-      localStorage.setItem(ID_KEY, id);
-    }
-    return id;
-  } catch {
-    memoryId ??= newId();
-    return memoryId;
-  }
-}
-
-/** Forget this guest and start fresh. */
-export function resetLearner(): void {
-  try {
-    const old = localStorage.getItem(ID_KEY);
-    for (const k of Object.keys(localStorage)) if (old && k.includes(old)) localStorage.removeItem(k);
-    localStorage.removeItem(ID_KEY);
-  } catch {
-    // storage unavailable: the in-memory id resets below
-  }
-  memoryId = null;
+export function clientKey(): string {
+  return clientKeyValue;
 }
 
 export type ApiResult<T> = { ok: true; data: T } | { ok: false; status: number; error: string; code: string };
@@ -43,11 +21,11 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
       method: init.method ?? "GET",
       headers: {
         "content-type": "application/json",
-        "x-learner-id": learnerId(),
         "x-timezone": Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       },
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
       cache: "no-store",
+      credentials: "same-origin",
     });
     const data = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
     if (!res.ok) return { ok: false, status: res.status, error: data.error ?? `Request failed (${res.status})`, code: data.code ?? "error" };
@@ -57,10 +35,16 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   }
 }
 
+/** Ends the session and goes to the ID page. */
+export async function signOut(): Promise<void> {
+  await api("/api/identity/sign-out", { method: "POST" });
+  window.location.href = "/enter";
+}
+
 /** Per-learner draft storage, so a refresh keeps half-finished forms. */
 export function loadDraft<T>(name: string): T | null {
   try {
-    const raw = localStorage.getItem(`fic_${name}_${learnerId()}`);
+    const raw = localStorage.getItem(`fic_${name}_${clientKeyValue}`);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -69,7 +53,7 @@ export function loadDraft<T>(name: string): T | null {
 
 export function saveDraft(name: string, value: unknown): void {
   try {
-    localStorage.setItem(`fic_${name}_${learnerId()}`, JSON.stringify(value));
+    localStorage.setItem(`fic_${name}_${clientKeyValue}`, JSON.stringify(value));
   } catch {
     // drafts are a convenience only
   }
@@ -77,7 +61,7 @@ export function saveDraft(name: string, value: unknown): void {
 
 export function clearDraft(name: string): void {
   try {
-    localStorage.removeItem(`fic_${name}_${learnerId()}`);
+    localStorage.removeItem(`fic_${name}_${clientKeyValue}`);
   } catch {
     // ignore
   }
@@ -105,4 +89,16 @@ export function shuffledIndexes(n: number, seed: string): number[] {
 
 export function formatDate(iso: string, opts: Intl.DateTimeFormatOptions = { weekday: "short", month: "short", day: "numeric" }): string {
   return new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
+}
+
+const DAY_EVENT = "fic:day-changed";
+
+/** Fired after the demo clock moves or the demo resets, so every mounted page reloads its data. */
+export function emitDayChange(): void {
+  window.dispatchEvent(new Event(DAY_EVENT));
+}
+
+export function onDayChange(callback: () => void): () => void {
+  window.addEventListener(DAY_EVENT, callback);
+  return () => window.removeEventListener(DAY_EVENT, callback);
 }

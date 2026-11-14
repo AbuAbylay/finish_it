@@ -1,272 +1,354 @@
 "use client";
-import Link from "next/link";
+// Today's lesson: why line, a quick review first (when due), the reading, then a quiz checked one question at a time.
+// /lesson?unit=X re-reads a covered unit without changing progress. /lesson?k=KEY reopens a graded lesson.
+// The server enforces locking; this page only renders what it is given.
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { Markdown } from "@/components/Markdown";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { Icon } from "@/components/icons";
+import { LessonBody } from "@/components/lesson/LessonBody";
+import { LockedState } from "@/components/lesson/LockedState";
+import { ModeBadges } from "@/components/lesson/ModeBadges";
+import { QuestionSequence } from "@/components/lesson/QuestionSequence";
+import { ResultCard } from "@/components/lesson/ResultCard";
+import { SideChat } from "@/components/lesson/SideChat";
+import { SourceQuote } from "@/components/lesson/SourceQuote";
 import { QuestionCard } from "@/components/QuestionCard";
-import { Shell } from "@/components/Shell";
-import { Button, Card, ErrorCard, Skeleton, Spinner } from "@/components/ui";
+import { StatusPill } from "@/components/StatusPill";
+import { Button, ErrorCard, Spinner } from "@/components/ui";
 import { useGate } from "@/components/useGate";
-import type { AnswersResponse, LessonResponse, LessonResult, PresentedLesson, QuestionResult, Stage } from "@/lib/api-types";
-import { api, clearDraft, formatDate, loadDraft, saveDraft } from "@/lib/client";
-import { copy } from "@/lib/content";
-import type { Mode } from "@/lib/types";
+import { WhyLine } from "@/components/WhyLine";
+import type {
+  AnswersResponse,
+  CheckResponse,
+  LessonResponse,
+  LessonResult,
+  PresentedLesson,
+  QuestionResult,
+  RereadResponse,
+  Stage,
+} from "@/lib/api-types";
+import { api, emitDayChange, onDayChange } from "@/lib/client";
+import { lessonCopy as t, lessonsCopy } from "@/lib/copy/pages";
 
-const t = copy.lesson;
+type View =
+  | { kind: "loading" }
+  | { kind: "lesson"; data: PresentedLesson }
+  | { kind: "reread"; data: RereadResponse }
+  | { kind: "locked"; message: string }
+  | { kind: "error"; message: string; retryable: boolean; limited: boolean };
 
-const MODE_STYLE: Record<Mode, string> = {
-  new: "bg-emerald-100 text-emerald-900",
-  review: "bg-amber-100 text-amber-900",
-  catch_up: "bg-sky-100 text-sky-900",
-};
+type Params = { key?: string | null; unit?: string | null };
 
-function answersOf(result: LessonResult): Record<string, number> {
-  return Object.fromEntries([...result.quiz, ...result.review_quiz].map((r) => [r.question_id, r.chosen]));
+function readUrl(): Params {
+  const p = new URLSearchParams(window.location.search);
+  return { key: p.get("k"), unit: p.get("unit") };
 }
 
-function keyFromUrl(): string | null {
-  return new URLSearchParams(window.location.search).get("k");
+function setUrl(params: Params) {
+  const q = params.key ? `?k=${encodeURIComponent(params.key)}` : params.unit ? `?unit=${encodeURIComponent(params.unit)}` : "";
+  window.history.replaceState(null, "", `/lesson${q}`);
 }
 
-function setUrlKey(key: string | null) {
-  window.history.replaceState(null, "", key ? `/lesson?k=${encodeURIComponent(key)}` : "/lesson");
+/** All questions with their feedback, read-only (a graded lesson or a re-read). */
+function AnsweredList({ questions, seed, feedback }: { questions: PresentedLesson["lesson"]["quiz"]; seed: string; feedback: Record<string, QuestionResult> }) {
+  return (
+    <div className="space-y-6">
+      {questions.map((q, i) => (
+        <QuestionCard key={q.question_id} q={q} number={i + 1} seed={seed} chosen={feedback[q.question_id]?.chosen} feedback={feedback[q.question_id]} disabled />
+      ))}
+    </div>
+  );
+}
+
+function LessonHeader({ data }: { data: PresentedLesson }) {
+  return (
+    <header className="space-y-3">
+      <ModeBadges mode={data.order.mode} minutes={data.order.minutes} />
+      <h1 className="text-h1 text-ink">{data.lesson.title}</h1>
+      <WhyLine text={data.order.why} />
+    </header>
+  );
 }
 
 export default function LessonPage() {
   const router = useRouter();
   const { me, error: gateError, reload } = useGate(["lesson", "done"]);
-  const [data, setData] = useState<PresentedLesson | null>(null);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [view, setView] = useState<View>({ kind: "loading" });
+  const [checked, setChecked] = useState<Record<string, QuestionResult>>({});
   const [result, setResult] = useState<LessonResult | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
-  const [loadError, setLoadError] = useState<{ message: string; code: string } | null>(null);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [reviewDone, setReviewDone] = useState(false);
+  const [reviewHint, setReviewHint] = useState(false);
+  const [grading, setGrading] = useState(false);
+  const [gradeError, setGradeError] = useState<string | null>(null);
   const [skipping, setSkipping] = useState(false);
-  const [offset, setOffset] = useState(0);
-  const [loadingStep, setLoadingStep] = useState(0);
+  const loadedOnce = useRef(false);
+  const reviewRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
 
-  async function load(key: string | null) {
-    setLoadError(null);
-    setSubmitError(null);
-    setData(null);
-    setResult(null);
-    setLoadingStep(0);
-    const res = await api<LessonResponse>(key ? `/api/lesson?key=${encodeURIComponent(key)}` : "/api/lesson");
-    if (!res.ok) {
-      if (key && res.status === 404) {
-        setUrlKey(null);
-        return load(null);
+  const load = useCallback(
+    async (params: Params): Promise<void> => {
+      setView({ kind: "loading" });
+      setGradeError(null);
+      setReviewHint(false);
+      const path = params.key
+        ? `/api/lesson?key=${encodeURIComponent(params.key)}`
+        : params.unit
+          ? `/api/lesson?unit=${encodeURIComponent(params.unit)}`
+          : "/api/lesson";
+      const res = await api<LessonResponse>(path);
+      if (!res.ok) {
+        if (res.code === "locked") return setView({ kind: "locked", message: res.error });
+        if (res.code === "stale" || (res.status === 404 && (params.key || params.unit))) {
+          setUrl({});
+          return load({});
+        }
+        const limited = res.code === "rate_limited";
+        return setView({ kind: "error", message: res.error, retryable: !limited, limited });
       }
-      return setLoadError({ message: res.error, code: res.code });
-    }
-    if ("finished" in res.data) return router.replace("/done");
-    setData(res.data);
-    setResult(res.data.result);
-    setAnswers(res.data.result ? answersOf(res.data.result) : (loadDraft<Record<string, number>>(`lesson_${res.data.lesson_key}`) ?? {}));
-  }
+      const data = res.data;
+      if ("finished" in data) return router.replace("/done");
+      if ("reread" in data) return setView({ kind: "reread", data });
+      const quizIds = new Set(data.lesson.quiz.map((q) => q.question_id));
+      setChecked(data.checked);
+      setResult(data.result);
+      setStarted(!!data.result || Object.keys(data.checked).some((id) => quizIds.has(id)));
+      setReviewDone(data.lesson.review_quiz.every((q) => q.question_id in data.checked));
+      setView({ kind: "lesson", data });
+    },
+    [router],
+  );
 
   useEffect(() => {
-    if (!me) return;
-    setOffset(me.demo_day_offset);
-    void load(keyFromUrl());
-  }, [me]);
+    if (!me || loadedOnce.current) return;
+    loadedOnce.current = true;
+    void load(readUrl());
+  }, [me, load]);
 
-  // Visible progress while the lesson is being written.
-  useEffect(() => {
-    if (data || loadError) return;
-    const id = setInterval(() => setLoadingStep((s) => Math.min(s + 1, t.loadingSteps.length - 1)), 1800);
-    return () => clearInterval(id);
-  }, [data, loadError]);
+  // The demo clock moved (calendar popover or the shortcut below): show the lesson that is open now.
+  useEffect(
+    () =>
+      onDayChange(() => {
+        const { unit } = readUrl();
+        const params = unit ? { unit } : {};
+        setUrl(params);
+        void load(params);
+      }),
+    [load],
+  );
 
-  function choose(id: string, index: number) {
-    if (!data || result) return;
-    const draftKey = `lesson_${data.lesson_key}`;
-    setAnswers((prev) => {
-      const next = { ...prev, [id]: index };
-      saveDraft(draftKey, next);
-      return next;
+  async function check(questionId: string, choice: number): Promise<string | null> {
+    if (view.kind !== "lesson") return null;
+    const res = await api<CheckResponse>("/api/answers/check", {
+      method: "POST",
+      body: { lesson_key: view.data.lesson_key, question_id: questionId, choice },
     });
+    if (!res.ok) {
+      if (res.code === "locked" || res.code === "stale") {
+        void load({});
+        return null;
+      }
+      return res.error;
+    }
+    setChecked((prev) => ({ ...prev, [questionId]: res.data.feedback }));
+    return null;
   }
 
-  async function submit() {
-    if (!data) return;
-    setSubmitting(true);
-    setSubmitError(null);
-    const res = await api<AnswersResponse>("/api/answers", { method: "POST", body: { lesson_key: data.lesson_key, answers } });
-    setSubmitting(false);
-    if (!res.ok) return setSubmitError(res.error);
-    clearDraft(`lesson_${data.lesson_key}`);
+  async function grade() {
+    if (view.kind !== "lesson") return;
+    const missingReview = view.data.lesson.review_quiz.some((q) => !(q.question_id in checked));
+    if (missingReview) {
+      setReviewHint(true);
+      reviewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    setGrading(true);
+    setGradeError(null);
+    const res = await api<AnswersResponse>("/api/answers", { method: "POST", body: { lesson_key: view.data.lesson_key } });
+    setGrading(false);
+    if (!res.ok) {
+      if (res.code === "locked" || res.code === "stale") return void load({});
+      return setGradeError(res.error);
+    }
     setResult(res.data.result);
     setStage(res.data.stage);
-    setUrlKey(data.lesson_key);
+    setChecked(Object.fromEntries([...res.data.result.quiz, ...res.data.result.review_quiz].map((r) => [r.question_id, r])));
+    setUrl({ key: view.data.lesson_key });
     setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   }
 
   function nextLesson() {
     if (stage === "done") return router.push("/done");
-    setUrlKey(null);
+    setUrl({});
     window.scrollTo({ top: 0 });
-    void load(null);
+    void load({});
   }
 
   async function skipToTomorrow() {
     setSkipping(true);
-    const res = await api<{ demo_day_offset: number }>("/api/demo/skip-day", { method: "POST" });
+    const res = await api("/api/demo/skip-day", { method: "POST" });
     setSkipping(false);
-    if (!res.ok) return setSubmitError(res.error);
-    setOffset(res.data.demo_day_offset);
-    nextLesson();
+    if (!res.ok) return setGradeError(res.error);
+    window.scrollTo({ top: 0 });
+    emitDayChange(); // reloads this page (open lesson) and the shell
   }
 
-  if (gateError) return <Shell nav><ErrorCard message={gateError} onRetry={reload} /></Shell>;
+  const shell = (children: React.ReactNode, title: string = t.title) => (
+    <AppShell me={me} title={title}>
+      <div className="mx-auto max-w-reading space-y-6 pb-24">{children}</div>
+    </AppShell>
+  );
 
-  if (loadError) {
-    const limited = loadError.code === "rate_limited";
-    return (
-      <Shell nav demoOffset={offset}>
-        <div className="space-y-4">
-          {limited && <h1 className="text-xl font-bold">{t.rateLimited}</h1>}
-          <ErrorCard message={loadError.message} onRetry={() => load(keyFromUrl())} retryable={!limited} />
-          <Link href="/plan" className="inline-flex min-h-12 items-center font-semibold text-stone-700 underline underline-offset-4">
-            {t.toPlan}
-          </Link>
+  if (gateError) return shell(<ErrorCard message={gateError} onRetry={reload} />);
+
+  if (view.kind === "loading") {
+    return shell(
+      <>
+        <Spinner label={t.writing} />
+        <div className="space-y-4" aria-hidden>
+          <div className="skeleton h-7 w-40" />
+          <div className="skeleton h-9 w-3/4" />
+          <div className="skeleton h-20 w-full rounded-card" />
+          <div className="skeleton h-4 w-full" />
+          <div className="skeleton h-4 w-11/12" />
+          <div className="skeleton h-4 w-4/5" />
         </div>
-      </Shell>
+      </>,
     );
   }
 
-  if (!data) {
-    return (
-      <Shell nav demoOffset={offset}>
-        <div className="space-y-6">
-          <Spinner label={t.loadingSteps[loadingStep]} />
-          <Card className="space-y-6">
-            <div className="h-7 w-2/3 animate-pulse rounded bg-stone-200" />
-            <Skeleton lines={4} />
-            <Skeleton lines={3} />
-          </Card>
-        </div>
-      </Shell>
+  if (view.kind === "locked") return shell(<LockedState message={view.message} />);
+
+  if (view.kind === "error") {
+    return shell(
+      <>
+        {view.limited && <h1 className="text-h2 text-ink">{t.limitTitle}</h1>}
+        <ErrorCard message={view.message} onRetry={() => load(readUrl())} retryable={view.retryable} />
+        {view.limited && (
+          <Button variant="secondary" onClick={() => router.push("/")}>
+            {t.backToPlan}
+          </Button>
+        )}
+      </>,
     );
   }
 
-  const { order, lesson } = data;
-  const reveal = new Map<string, QuestionResult>(result ? [...result.quiz, ...result.review_quiz].map((r) => [r.question_id, r]) : []);
-  const all = [...lesson.review_quiz, ...lesson.quiz];
-  const unanswered = all.filter((q) => !(q.question_id in answers)).length;
-  const right = result ? result.quiz.filter((r) => r.correct).length : 0;
-  const seed = data.lesson_key;
-
-  return (
-    <Shell nav demoOffset={offset}>
-      <article className="space-y-6">
+  if (view.kind === "reread") {
+    const { data } = view;
+    const past = data.lesson;
+    return shell(
+      <>
+        <p className="flex items-start gap-2 rounded-control bg-info-soft p-3 text-body text-info" role="status">
+          <Icon name="info" className="mt-0.5 size-5" />
+          {t.rereadBanner}
+        </p>
         <header className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-            <span className={`rounded-full px-3 py-1 ${MODE_STYLE[order.mode]}`}>{t.modes[order.mode]}</span>
-            <span className="rounded-full bg-stone-200 px-3 py-1 text-stone-700">{t.minutes(order.minutes)}</span>
-          </div>
-          <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{lesson.title}</h1>
+          <StatusPill state={data.state} />
+          <h1 className="text-h1 text-ink">{data.unit.title}</h1>
+          <p className="text-body text-ink-muted">{data.unit.objective}</p>
         </header>
+        {past ? (
+          <>
+            <LessonBody lesson={past.lesson} />
+            <section className="space-y-4" aria-labelledby="past-quiz">
+              <h2 id="past-quiz" className="text-h2 text-ink">
+                {t.quizTitle(past.lesson.quiz.length)}
+              </h2>
+              <AnsweredList questions={past.lesson.quiz} seed={past.lesson_key} feedback={past.checked} />
+            </section>
+          </>
+        ) : (
+          <SourceQuote quote={data.unit.excerpt} label={t.rereadExcerpt} />
+        )}
+        <Button variant="secondary" onClick={() => router.push("/lessons")}>
+          <Icon name="chevron-left" />
+          {t.rereadBack}
+        </Button>
+      </>,
+      lessonsCopy.title,
+    );
+  }
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-wide text-amber-800">{t.why}</p>
-          <p className="mt-1 text-base leading-relaxed text-amber-950">{order.why}</p>
+  const { data } = view;
+  const seed = data.lesson_key;
+  const review = data.lesson.review_quiz;
+  const reviewRight = review.filter((q) => checked[q.question_id]?.correct).length;
+
+  return shell(
+    <>
+      <LessonHeader data={data} />
+
+      {review.length > 0 && (
+        <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-warn-line bg-surface p-5 shadow-card md:p-6">
+          <h2 id="review-title" className="flex items-center gap-2 text-h2 text-ink">
+            <Icon name="refresh" className="size-5 text-warn" />
+            {reviewDone || result ? t.reviewSummary(reviewRight, review.length) : t.reviewTitle(review.length)}
+          </h2>
+          {reviewHint && !reviewDone && (
+            <p role="alert" className="text-small text-warn">
+              {t.reviewFirst}
+            </p>
+          )}
+          {result ? (
+            <AnsweredList questions={review} seed={seed} feedback={checked} />
+          ) : (
+            !reviewDone && (
+              <QuestionSequence
+                key={`${seed}:review`}
+                questions={review}
+                seed={seed}
+                checked={checked}
+                onCheck={check}
+                onDone={() => setReviewDone(true)}
+                doneLabel={t.next}
+                holdLast={false}
+              />
+            )
+          )}
+        </section>
+      )}
+
+      <LessonBody lesson={data.lesson} />
+
+      {!started && !result && (
+        <Button className="h-12 w-full" onClick={() => setStarted(true)}>
+          {t.readDone}
+        </Button>
+      )}
+
+      {(started || result) && (
+        <section aria-labelledby="quiz-title" className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+          <h2 id="quiz-title" className="text-h2 text-ink">
+            {t.quizTitle(data.lesson.quiz.length)}
+          </h2>
+          {result ? (
+            <AnsweredList questions={data.lesson.quiz} seed={seed} feedback={checked} />
+          ) : (
+            <QuestionSequence
+              key={`${seed}:quiz`}
+              questions={data.lesson.quiz}
+              seed={seed}
+              checked={checked}
+              onCheck={check}
+              onDone={grade}
+              doneLabel={grading ? t.grading : t.seeResult}
+              holdLast
+              busy={grading}
+            />
+          )}
+          {gradeError && <ErrorCard message={gradeError} onRetry={grade} />}
+        </section>
+      )}
+
+      {result && (
+        <div ref={resultRef} className="scroll-mt-20">
+          <ResultCard result={result} onNext={nextLesson} onPlan={() => router.push("/")} onSkip={skipToTomorrow} skipping={skipping} />
         </div>
+      )}
 
-        {lesson.sections.map((s, i) => (
-          <section key={i} className="space-y-2">
-            <h2 className="text-xl font-bold tracking-tight">{s.heading}</h2>
-            <Markdown>{s.body_md}</Markdown>
-            {s.source_quote && (
-              <blockquote className="rounded-r-xl border-l-4 border-emerald-600 bg-emerald-50/60 py-2 pr-3 pl-4 text-base text-stone-700">
-                <span className="block text-xs font-bold uppercase tracking-wide text-emerald-800">{t.fromCourse}</span>
-                <span className="italic">“{s.source_quote}”</span>
-              </blockquote>
-            )}
-          </section>
-        ))}
-
-        {lesson.key_points.length > 0 && (
-          <Card className="bg-stone-50">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-stone-500">{t.keyPoints}</h2>
-            <ul className="mt-3 space-y-2">
-              {lesson.key_points.map((k) => (
-                <li key={k} className="flex gap-2 text-base">
-                  <span className="text-emerald-700" aria-hidden>•</span>
-                  {k}
-                </li>
-              ))}
-            </ul>
-          </Card>
-        )}
-
-        {lesson.review_quiz.length > 0 && (
-          <Card className="space-y-6 border-amber-200">
-            <h2 className="text-lg font-bold">{t.reviewTitle}</h2>
-            {lesson.review_quiz.map((q, i) => (
-              <QuestionCard key={q.question_id} q={q} number={i + 1} seed={seed} chosen={answers[q.question_id]} onChoose={(x) => choose(q.question_id, x)} reveal={reveal.get(q.question_id)} />
-            ))}
-          </Card>
-        )}
-
-        <Card className="space-y-6">
-          <h2 className="text-lg font-bold">{t.quizTitle}</h2>
-          {lesson.quiz.map((q, i) => (
-            <QuestionCard key={q.question_id} q={q} number={i + 1} seed={seed} chosen={answers[q.question_id]} onChoose={(x) => choose(q.question_id, x)} reveal={reveal.get(q.question_id)} />
-          ))}
-        </Card>
-
-        {submitError && <ErrorCard message={submitError} onRetry={submit} />}
-
-        {!result && (
-          <div className="sticky bottom-0 -mx-4 border-t border-stone-200 bg-stone-50/95 px-4 py-3 backdrop-blur">
-            {submitting ? (
-              <Spinner label={t.submitting} />
-            ) : (
-              <Button className="w-full" disabled={unanswered > 0} onClick={submit}>
-                {unanswered > 0 ? t.unanswered(unanswered) : t.submit}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {result && (
-          <div ref={resultRef} className="scroll-mt-20">
-            <Card className="space-y-4 border-stone-300">
-              <p className="text-2xl font-bold">{t.score(right, result.quiz.length)}</p>
-              <p className={`text-base font-semibold ${result.status === "done" ? "text-emerald-800" : "text-amber-800"}`}>
-                {result.status === "done" ? t.passed : t.needsReview}
-              </p>
-              {result.coming_back.length > 0 && (
-                <div className="rounded-xl bg-stone-50 p-3">
-                  <p className="text-sm font-bold uppercase tracking-wide text-stone-500">{t.comingBack}</p>
-                  <ul className="mt-2 space-y-1">
-                    {result.coming_back.map((c) => (
-                      <li key={c.concept} className="text-base">
-                        “{c.concept}” <span className="text-stone-500">· {formatDate(c.review_due)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Button onClick={nextLesson}>{t.nextLesson}</Button>
-                <Button variant="secondary" onClick={() => router.push("/plan")}>
-                  {t.toPlan}
-                </Button>
-              </div>
-              <div className="space-y-2 rounded-xl border border-dashed border-amber-300 bg-amber-50/60 p-3">
-                <p className="text-sm text-amber-900">{t.skipHint}</p>
-                <Button variant="secondary" className="w-full" disabled={skipping} onClick={skipToTomorrow}>
-                  {skipping ? copy.plan.skipping : t.skipDemo}
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
-      </article>
-    </Shell>
+      {me?.ai === "real" && <SideChat lessonKey={data.lesson_key} />}
+    </>,
   );
 }

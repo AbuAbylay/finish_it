@@ -1,127 +1,213 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { QuestionCard } from "@/components/QuestionCard";
-import { Shell } from "@/components/Shell";
-import { Button, Card, ErrorCard, Skeleton, Spinner } from "@/components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { AppShell } from "@/components/AppShell";
+import { StatusPill } from "@/components/StatusPill";
+import { PaceLine } from "@/components/shell/PaceLine";
+import { Button, Card, ErrorCard, Pill, Skeleton } from "@/components/ui";
 import { useGate } from "@/components/useGate";
-import type { PlacementResponse, PublicQuestion } from "@/lib/api-types";
-import { api, clearDraft, learnerId, loadDraft, saveDraft } from "@/lib/client";
+import type { PlanResponse, PublicQuestion } from "@/lib/api-types";
+import { api, clearDraft, clientKey, loadDraft, saveDraft, shuffledIndexes } from "@/lib/client";
 import { copy } from "@/lib/content";
+import { shortDate } from "@/lib/dates";
+import { WEEKDAYS, type Weekday } from "@/lib/types";
 
 const t = copy.test;
+
+interface Draft {
+  step: number;
+  answers: Record<string, number>;
+}
+
+function Options({ q, chosen, onChoose }: { q: PublicQuestion; chosen: number | undefined; onChoose: (i: number) => void }) {
+  const order = useMemo(() => shuffledIndexes(q.options.length, `${clientKey()}:${q.question_id}`), [q.options.length, q.question_id]);
+  return (
+    <div className="grid gap-2">
+      {order.map((orig) => {
+        const selected = chosen === orig;
+        return (
+          <button
+            key={orig}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChoose(orig)}
+            className={`flex min-h-tap items-start gap-3 rounded-control border px-4 py-3 text-left text-body transition-colors duration-150 ${selected ? "border-primary bg-surface-muted text-ink ring-1 ring-primary ring-inset" : "border-line bg-surface text-ink hover:border-line-strong"}`}
+          >
+            <span className={`mt-1 grid size-4 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-ink" : "border-line-strong"}`} aria-hidden>
+              {selected && <span className="size-2 rounded-full bg-ink" />}
+            </span>
+            <span className="flex-1">{q.options[orig]}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; studyDays: Weekday[]; onStart: () => void }) {
+  const known = plan.units.filter((u) => u.status === "known").length;
+  const studyDays = WEEKDAYS.filter((d) => chosen.includes(d))
+    .map((d) => copy.survey.days[d])
+    .join(", ");
+  const knownLine = t.known(known, plan.units_total);
+  const lessonsLine = t.lessons(plan.pace.lessons_left, plan.minutes_per_day, studyDays);
+  return (
+    <div className="mx-auto max-w-reading space-y-6">
+      <h1 className="text-h1 text-ink">{t.planTitle(shortDate(plan.deadline))}</h1>
+      <div className="space-y-2 text-body-lg text-ink">
+        {known > 0 ? (
+          <p>
+            {knownLine.before}
+            <strong className="font-semibold">{knownLine.strong}</strong>
+            {knownLine.after}
+          </p>
+        ) : (
+          <p>{t.knownNone}</p>
+        )}
+        <p>
+          <strong className="font-semibold">{lessonsLine.strong}</strong>
+          {lessonsLine.after}
+        </p>
+      </div>
+      <Card>
+        <PaceLine pace={plan.pace} />
+      </Card>
+      <Card className="space-y-3">
+        <h2 className="text-h2 text-ink">{t.topics}</h2>
+        <ul className="divide-y divide-line">
+          {plan.units.map((u) => (
+            <li key={u.unit_id} className="flex items-center justify-between gap-3 py-3">
+              <span className="text-body text-ink">{u.title}</span>
+              {u.status === "known" ? <StatusPill state="known" label={t.knownPill} /> : <Pill icon="clock" label={t.todoPill} />}
+            </li>
+          ))}
+        </ul>
+      </Card>
+      <Button className="w-full" onClick={onStart}>
+        {t.start}
+      </Button>
+    </div>
+  );
+}
 
 export default function PlacementTest() {
   const router = useRouter();
   const { me, error: gateError, reload } = useGate(["test"]);
   const [questions, setQuestions] = useState<PublicQuestion[] | null>(null);
-  const [answers, setAnswers] = useState<Record<string, number>>({});
-  const [result, setResult] = useState<PlacementResponse | null>(null);
+  const [draft, setDraft] = useState<Draft>({ step: 0, answers: {} });
+  const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retry: () => void } | null>(null);
 
   async function load() {
     setError(null);
     const res = await api<{ questions: PublicQuestion[] }>("/api/placement");
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) return setError({ message: res.error, retry: load });
     setQuestions(res.data.questions);
-    setAnswers(loadDraft<Record<string, number>>("placement") ?? {});
+    setDraft(loadDraft<Draft>("placement") ?? { step: 0, answers: {} });
   }
 
   useEffect(() => {
     if (me) void load();
   }, [me]);
 
-  function choose(id: string, index: number) {
-    setAnswers((prev) => {
-      const next = { ...prev, [id]: index };
-      saveDraft("placement", next);
-      return next;
-    });
+  function update(next: Draft) {
+    setDraft(next);
+    saveDraft("placement", next);
+  }
+
+  async function loadPlan() {
+    setError(null);
+    const res = await api<PlanResponse>("/api/plan");
+    if (!res.ok) return setError({ message: res.error, retry: loadPlan });
+    setPlan(res.data);
   }
 
   async function submit() {
     setBusy(true);
     setError(null);
-    const res = await api<PlacementResponse>("/api/placement", { method: "POST", body: { answers } });
-    setBusy(false);
-    if (!res.ok) return setError(res.error);
+    const res = await api("/api/placement", { method: "POST", body: { answers: draft.answers } });
+    if (!res.ok) {
+      setBusy(false);
+      return setError({ message: res.error, retry: submit });
+    }
     clearDraft("placement");
-    setResult(res.data);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    await loadPlan();
+    setBusy(false);
+    window.scrollTo({ top: 0 });
   }
 
-  if (gateError) return <Shell><ErrorCard message={gateError} onRetry={reload} /></Shell>;
-
-  if (result) {
+  if (gateError) {
     return (
-      <Shell>
-        <div className="space-y-6">
-          <h1 className="text-2xl font-bold tracking-tight">{t.resultTitle}</h1>
-          <Card className="space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-wide text-stone-500">{t.knownLabel}</p>
-            {result.known.length === 0 ? (
-              <p className="text-base text-stone-700">{t.knownNone}</p>
-            ) : (
-              <ul className="space-y-2">
-                {result.known.map((k) => (
-                  <li key={k} className="flex gap-2 text-base">
-                    <span className="text-emerald-700" aria-hidden>✓</span>
-                    {k}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className="border-t border-stone-100 pt-3 text-lg font-semibold">{t.lessonsLabel(result.lessons_left)}</p>
-          </Card>
-          <Button className="w-full" onClick={() => router.push("/lesson")}>
-            {t.start}
-          </Button>
-        </div>
-      </Shell>
+      <AppShell me={null} variant="flow">
+        <ErrorCard message={gateError} onRetry={reload} />
+      </AppShell>
     );
   }
 
-  const answered = questions ? questions.filter((q) => q.question_id in answers).length : 0;
-  const complete = !!questions && answered === questions.length;
+  if (plan) {
+    return (
+      <AppShell me={me} variant="flow">
+        <PlanScreen plan={plan} studyDays={me?.profile?.study_days ?? [...WEEKDAYS]} onStart={() => router.push("/lesson")} />
+      </AppShell>
+    );
+  }
+
+  const total = questions?.length ?? 5;
+  const step = Math.min(draft.step, total - 1);
+  const q = questions?.[step];
+  const chosen = q ? draft.answers[q.question_id] : undefined;
+  const last = step === total - 1;
 
   return (
-    <Shell>
-      <div className="space-y-6">
+    <AppShell me={me} variant="flow">
+      <div className="mx-auto max-w-reading space-y-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">{t.title}</h1>
-          <p className="text-base text-stone-600">{t.sub}</p>
+          <h1 className="text-h1 text-ink">{t.title}</h1>
+          <p className="text-body text-ink-muted">{t.sub}</p>
         </div>
-        {error && <ErrorCard message={error} onRetry={questions ? submit : load} />}
+
+        {error && <ErrorCard message={error.message} onRetry={error.retry} />}
+
         {!questions && !error && (
           <Card>
             <Skeleton lines={5} />
           </Card>
         )}
-        {questions?.map((q, i) => (
-          <Card key={q.question_id}>
-            <QuestionCard
-              q={q}
-              number={i + 1}
-              seed={learnerId()}
-              chosen={answers[q.question_id]}
-              onChoose={(idx) => choose(q.question_id, idx)}
-              dontKnowLabel={t.dontKnow}
-            />
-          </Card>
-        ))}
-        {questions && (
-          <div className="sticky bottom-0 -mx-4 border-t border-stone-200 bg-stone-50/95 px-4 py-3 backdrop-blur">
-            {busy ? (
-              <Spinner label={t.submitting} />
-            ) : (
-              <Button className="w-full" disabled={!complete} onClick={submit}>
-                {complete ? t.submit : t.answered(answered, questions.length)}
+
+        {q && (
+          <>
+            <div className="space-y-2">
+              <p className="text-small font-semibold text-ink-muted">{t.progress(step + 1, total)}</p>
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted" aria-hidden>
+                <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${((step + 1) / total) * 100}%` }} />
+              </div>
+            </div>
+            <fieldset key={q.question_id} className="space-y-4">
+              <legend className="text-h2 text-ink">{q.prompt}</legend>
+              <Options q={q} chosen={chosen} onChoose={(i) => update({ ...draft, answers: { ...draft.answers, [q.question_id]: i } })} />
+              <p className="text-small text-ink-muted">{t.hint}</p>
+            </fieldset>
+
+            <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
+              {step > 0 && (
+                <Button variant="secondary" disabled={busy} onClick={() => update({ ...draft, step: step - 1 })}>
+                  {t.back}
+                </Button>
+              )}
+              <Button
+                className="flex-1"
+                disabled={chosen === undefined}
+                busy={busy}
+                busyLabel={t.submitting}
+                onClick={() => (last ? void submit() : update({ ...draft, step: step + 1 }))}
+              >
+                {last ? t.submit : t.next}
               </Button>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </div>
-    </Shell>
+    </AppShell>
   );
 }

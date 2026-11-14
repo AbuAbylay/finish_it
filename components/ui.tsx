@@ -1,34 +1,94 @@
 "use client";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+// Shared building blocks, styled only with the tokens in docs/design.md.
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
 import { copy } from "@/lib/content";
+import { Icon, type IconName } from "./icons";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-stone-900 text-white hover:bg-stone-700 disabled:bg-stone-300 disabled:text-stone-500",
-  secondary: "border border-stone-300 bg-white text-stone-900 hover:bg-stone-50 disabled:text-stone-400",
-  ghost: "text-stone-600 underline-offset-4 hover:text-stone-900 hover:underline",
+  primary: "min-h-12 bg-primary text-on-primary hover:bg-primary-hover",
+  secondary: "border border-line-strong bg-surface text-ink hover:bg-surface-muted",
+  ghost: "text-ink-muted hover:bg-sidebar-active hover:text-ink",
+  danger: "bg-danger text-on-primary hover:opacity-90",
 };
+
+const disabledCls =
+  "disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-muted disabled:text-ink-faint disabled:hover:bg-surface-muted";
 
 export function Button({
   variant = "primary",
+  busy = false,
+  busyLabel,
   className = "",
   children,
+  disabled,
   ...rest
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; busy?: boolean; busyLabel?: string }) {
   return (
     <button
       type="button"
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={`inline-flex min-h-tap items-center justify-center gap-2 rounded-control px-5 text-body font-semibold transition-colors duration-150 ${variants[variant]} ${disabledCls} ${className}`}
       {...rest}
     >
+      {busy && <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
+      {busy && busyLabel ? busyLabel : children}
+    </button>
+  );
+}
+
+/** Square icon-only button. `label` becomes the accessible name and tooltip. */
+export function IconButton({
+  icon,
+  label,
+  className = "",
+  children,
+  ...rest
+}: ComponentProps<"button"> & { icon: IconName; label: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`relative inline-flex size-tap shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors duration-150 hover:bg-sidebar-active hover:text-ink ${className}`}
+      {...rest}
+    >
+      <Icon name={icon} />
       {children}
     </button>
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border border-stone-200 bg-white p-5 shadow-sm ${className}`}>{children}</section>;
+type Band = "green" | "sand" | "sky";
+const bandCls: Record<Band, string> = { green: "band-green", sand: "band-sand", sky: "band-sky" };
+
+/** Card. With `band`, a soft illustrated header with an icon circle overlapping the body. */
+export function Card({
+  children,
+  className = "",
+  band,
+  bandIcon = "check",
+}: {
+  children: ReactNode;
+  className?: string;
+  band?: Band;
+  bandIcon?: IconName;
+}) {
+  if (!band) {
+    return <section className={`rounded-card border border-line bg-surface p-5 shadow-card md:p-6 ${className}`}>{children}</section>;
+  }
+  return (
+    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
+      <div className={`relative h-24 md:h-28 ${bandCls[band]}`} aria-hidden>
+        <span className="absolute -bottom-6 left-5 grid size-12 place-items-center rounded-full bg-surface text-ink shadow-card md:left-6">
+          <Icon name={bandIcon} className="size-6" />
+        </span>
+      </div>
+      <div className={`p-5 pt-9 md:p-6 md:pt-10 ${className}`}>{children}</div>
+    </section>
+  );
 }
 
 export function Chip({
@@ -47,23 +107,51 @@ export function Chip({
   compact?: boolean;
   className?: string;
 }) {
-  const on = tone === "skip" ? "border-stone-400 bg-stone-200 text-stone-500 line-through" : "border-emerald-700 bg-emerald-50 text-emerald-900";
+  const on =
+    tone === "skip"
+      ? "border-line-strong bg-locked-soft text-locked ring-1 ring-inset ring-line-strong"
+      : "border-primary bg-surface-muted text-ink ring-1 ring-inset ring-primary";
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-12 rounded-xl border py-2 text-base transition-colors ${compact ? "px-1 text-center" : "px-4 text-left"} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${selected ? on : "border-stone-300 bg-white text-stone-800 hover:border-stone-400"} ${className}`}
+      className={`min-h-tap rounded-control border py-2 text-body transition-colors duration-150 ${compact ? "px-1 text-center" : "flex items-center justify-between gap-3 px-4 text-left"} ${selected ? on : "border-line bg-surface text-ink hover:border-line-strong"} ${className}`}
     >
-      {children}
+      {compact ? (
+        children
+      ) : (
+        <>
+          <span className={selected && tone === "skip" ? "line-through" : ""}>{children}</span>
+          {selected && tone === "default" && <Icon name="check" className="size-5 text-ink" />}
+          {selected && tone === "skip" && <span className="shrink-0 text-small font-semibold no-underline">{copy.survey.q4.skipTag}</span>}
+        </>
+      )}
     </button>
+  );
+}
+
+/** Small status pill with an icon and a label. For lesson states use StatusPill. */
+export function Pill({ icon, label, tone = "neutral" }: { icon: IconName; label: string; tone?: "neutral" | "accent" | "warn" | "info" | "danger" }) {
+  const tones = {
+    neutral: "bg-surface-muted text-ink-muted",
+    accent: "bg-accent-soft text-accent-strong",
+    warn: "bg-warn-soft text-warn",
+    info: "bg-info-soft text-info",
+    danger: "bg-danger-soft text-danger",
+  };
+  return (
+    <span className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-small font-semibold ${tones[tone]}`}>
+      <Icon name={icon} className="size-4" />
+      {label}
+    </span>
   );
 }
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <div role="status" className="flex items-center gap-3 text-stone-600">
-      <span className="h-5 w-5 animate-spin rounded-full border-2 border-stone-300 border-t-stone-800" aria-hidden />
+    <div role="status" className="flex items-center gap-3 text-ink-muted">
+      <span className="size-5 animate-spin rounded-full border-2 border-line border-t-ink" aria-hidden />
       {label && <span>{label}</span>}
     </div>
   );
@@ -71,24 +159,26 @@ export function Spinner({ label }: { label?: string }) {
 
 export function ErrorCard({ message, onRetry, retryable = true }: { message: string; onRetry?: () => void; retryable?: boolean }) {
   return (
-    <Card className="border-rose-200 bg-rose-50">
-      <p role="alert" className="text-base text-rose-900">
-        {message || copy.errors.generic}
+    <section className="rounded-card border border-danger/30 bg-danger-soft p-5">
+      <p role="alert" className="flex gap-3 text-body text-ink">
+        <Icon name="alert" className="mt-0.5 size-5 text-danger" />
+        <span>{message || copy.errors.generic}</span>
       </p>
       {onRetry && retryable && (
-        <Button className="mt-4 w-full sm:w-auto" onClick={onRetry}>
+        <Button variant="secondary" className="mt-4 w-full sm:w-auto" onClick={onRetry}>
+          <Icon name="refresh" />
           {copy.errors.retry}
         </Button>
       )}
-    </Card>
+    </section>
   );
 }
 
 export function Skeleton({ lines = 3 }: { lines?: number }) {
   return (
-    <div className="animate-pulse space-y-3" aria-hidden>
+    <div className="space-y-3" aria-hidden>
       {Array.from({ length: lines }, (_, i) => (
-        <div key={i} className="h-4 rounded bg-stone-200" style={{ width: `${92 - ((i * 17) % 35)}%` }} />
+        <div key={i} className="skeleton h-4" style={{ width: `${92 - ((i * 17) % 35)}%` }} />
       ))}
     </div>
   );

@@ -1,93 +1,173 @@
 "use client";
-import { useRouter } from "next/navigation";
+// Home: today's one lesson, the course at a glance, and what comes back for review.
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Shell } from "@/components/Shell";
-import { Button, Card, ErrorCard, Spinner } from "@/components/ui";
-import { STAGE_HOME } from "@/components/useGate";
-import type { MeResponse } from "@/lib/api-types";
-import { api, resetLearner } from "@/lib/client";
-import { copy } from "@/lib/content";
+import { AppShell } from "@/components/AppShell";
+import { Icon } from "@/components/icons";
+import { BandCard } from "@/components/lesson/BandCard";
+import { EmptyState } from "@/components/lesson/EmptyState";
+import { ModeBadges } from "@/components/lesson/ModeBadges";
+import { ErrorCard } from "@/components/ui";
+import { useGate } from "@/components/useGate";
+import { WhyLine } from "@/components/WhyLine";
+import type { PlanResponse } from "@/lib/api-types";
+import { api } from "@/lib/client";
+import { homeCopy as h, paceSentence } from "@/lib/copy/pages";
+import { shortDate } from "@/lib/dates";
 
-export default function Landing() {
-  const router = useRouter();
-  const [me, setMe] = useState<MeResponse | null>(null);
-  const [busy, setBusy] = useState(false);
+const primaryLink =
+  "inline-flex h-12 w-full items-center justify-center gap-2 rounded-control bg-primary px-5 font-semibold text-on-primary hover:bg-primary-hover sm:w-auto";
+const secondaryLink =
+  "inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-control border border-line-strong bg-surface px-5 font-semibold text-ink hover:bg-surface-muted sm:w-auto";
+
+function SkeletonCard() {
+  return (
+    <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card" aria-hidden>
+      <div className="skeleton h-20 rounded-none md:h-24" />
+      <div className="space-y-3 p-5 pt-9 md:p-6">
+        <div className="skeleton h-6 w-1/2" />
+        <div className="skeleton h-4 w-11/12" />
+        <div className="skeleton h-4 w-3/4" />
+      </div>
+    </div>
+  );
+}
+
+export default function Home() {
+  const { me, error: gateError, reload } = useGate(["lesson", "done"]);
+  const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadMe() {
+  async function load() {
     setError(null);
-    const res = await api<MeResponse>("/api/me");
-    if (res.ok) setMe(res.data);
+    const res = await api<PlanResponse>("/api/plan");
+    if (res.ok) setPlan(res.data);
     else setError(res.error);
   }
 
+  // `me` is reloaded by useGate after the demo clock moves, which reloads this page's data too.
   useEffect(() => {
-    void loadMe();
-  }, []);
+    if (me) void load();
+  }, [me]);
 
-  async function startSample() {
-    setBusy(true);
-    setError(null);
-    const res = await api("/api/course", { method: "POST", body: { source: "sample" } });
-    if (!res.ok) {
-      setBusy(false);
-      return setError(res.error);
-    }
-    router.push("/survey");
+  if (gateError) {
+    return (
+      <AppShell me={me} title={h.title}>
+        <ErrorCard message={gateError} onRetry={reload} />
+      </AppShell>
+    );
   }
 
-  function startOver() {
-    resetLearner();
-    setMe(null);
-    void loadMe();
-  }
-
-  const returning = me && me.stage !== "start";
+  const pace = plan ? paceSentence(plan.pace) : null;
+  const behind = plan ? !plan.pace.on_track && plan.pace.lessons_left > 0 : false;
+  const pct = plan ? Math.round((plan.units_done / Math.max(plan.units_total, 1)) * 100) : 0;
 
   return (
-    <Shell>
-      <div className="space-y-8 pt-4 sm:pt-10">
-        <div className="space-y-4">
-          <h1 className="text-3xl font-bold leading-tight tracking-tight text-stone-900 sm:text-4xl">{copy.landing.oneLiner}</h1>
-          <p className="text-lg leading-relaxed text-stone-600">{copy.landing.sub}</p>
-        </div>
+    <AppShell me={me} title={h.title}>
+      <div className="mx-auto max-w-content space-y-5 md:space-y-6">
+        {error && <ErrorCard message={error} onRetry={load} />}
+        {!plan && !error && (
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="lg:col-span-2">
+              <SkeletonCard />
+            </div>
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        )}
 
-        <ul className="space-y-3">
-          {copy.landing.points.map((p) => (
-            <li key={p} className="flex gap-3 text-base text-stone-800">
-              <span className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full bg-emerald-100 text-sm text-emerald-800" aria-hidden>
-                ✓
-              </span>
-              <span>{p}</span>
-            </li>
-          ))}
-        </ul>
+        {plan && (
+          <div className="grid gap-5 md:gap-6 lg:grid-cols-2">
+            <BandCard band="green" icon="lessons" labelledBy="today-title" className="lg:col-span-2" title={`${h.today} · ${shortDate(plan.today)}`}>
+              {plan.next ? (
+                <>
+                  <div className="space-y-2">
+                    <ModeBadges mode={plan.next.mode} minutes={plan.next.minutes} />
+                    <p className="text-h1 text-ink">{plan.next.unit_title}</p>
+                  </div>
+                  <WhyLine text={plan.next.why} />
+                  {plan.studied_today && (
+                    <p className="flex items-center gap-2 text-body font-semibold text-accent-strong">
+                      <Icon name="check-circle" />
+                      {h.doneToday}
+                    </p>
+                  )}
+                  <Link href="/lesson" className={plan.studied_today ? secondaryLink : primaryLink}>
+                    {plan.studied_today ? h.another : h.start}
+                    <Icon name="arrow-right" />
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="flex items-center gap-2 text-h3 text-accent-strong">
+                    <Icon name="check-circle" />
+                    {h.finished}
+                  </p>
+                  <Link href="/done" className={primaryLink}>
+                    {h.toFinish}
+                    <Icon name="arrow-right" />
+                  </Link>
+                </>
+              )}
+            </BandCard>
 
-        {error && <ErrorCard message={error} onRetry={me ? startSample : loadMe} />}
+            <BandCard band="sand" icon="plan" labelledBy="course-title" title={h.myCourse}>
+              <div className="space-y-1">
+                <p className="text-h3 text-ink">{plan.course_title}</p>
+                <p className="text-small text-ink-muted">{h.examOn(shortDate(plan.deadline))}</p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-small font-semibold text-ink">{h.topicsDone(plan.units_done, plan.units_total)}</p>
+                <div
+                  role="progressbar"
+                  aria-label={h.topicsDone(plan.units_done, plan.units_total)}
+                  aria-valuemin={0}
+                  aria-valuemax={plan.units_total}
+                  aria-valuenow={plan.units_done}
+                  className="h-2 overflow-hidden rounded-full bg-surface-muted"
+                >
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+              {pace && (
+                <div className={`flex items-start gap-2 ${behind ? "text-warn" : "text-accent-strong"}`}>
+                  <Icon name={behind ? "alert" : "check-circle"} className="mt-0.5 size-5" />
+                  <div>
+                    <p className="text-body font-semibold">{pace.line}</p>
+                    {pace.suggestion && <p className="text-small text-ink-muted">{pace.suggestion}</p>}
+                  </div>
+                </div>
+              )}
+              <Link href="/plan" className={secondaryLink}>
+                {h.seePlan}
+              </Link>
+            </BandCard>
 
-        <Card className="space-y-4">
-          {!me && !error && <Spinner />}
-          {me && busy && <Spinner label={copy.landing.starting} />}
-          {me && !busy && returning && (
-            <>
-              <Button className="w-full" onClick={() => router.push(me.stage === "lesson" ? "/plan" : STAGE_HOME[me.stage])}>
-                {copy.landing.continue}
-              </Button>
-              <Button variant="ghost" className="w-full" onClick={startOver}>
-                {copy.landing.startOver}
-              </Button>
-            </>
-          )}
-          {me && !busy && !returning && (
-            <>
-              <Button className="w-full" onClick={startSample}>
-                {copy.landing.startSample}
-              </Button>
-              <p className="text-center text-sm text-stone-500">{copy.landing.sampleNote}</p>
-            </>
-          )}
-        </Card>
+            <BandCard band="sky" icon="refresh" labelledBy="review-title" title={h.reviewTitle}>
+              {plan.reviews.length === 0 ? (
+                <EmptyState icon="check-circle" title={h.reviewEmptyTitle} line={h.reviewEmptyLine} />
+              ) : (
+                <ul className="divide-y divide-line">
+                  {plan.reviews.map((r) => (
+                    <li key={`${r.unit_id}:${r.concept}`} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="min-w-0">
+                        <p className="text-h3 text-ink">“{r.concept}”</p>
+                        <p className="text-small text-ink-muted">{h.fromUnit(r.unit_title)}</p>
+                      </div>
+                      <span
+                        className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-full px-2.5 text-small font-semibold ${r.due_now ? "bg-warn-soft text-warn" : "bg-surface-muted text-ink-muted"}`}
+                      >
+                        <Icon name={r.due_now ? "refresh" : "clock"} className="size-4" />
+                        {r.due_now ? h.dueToday : h.backOn(shortDate(r.review_due))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </BandCard>
+          </div>
+        )}
       </div>
-    </Shell>
+    </AppShell>
   );
 }

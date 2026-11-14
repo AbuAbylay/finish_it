@@ -1,12 +1,13 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Shell } from "@/components/Shell";
-import { Button, Card, ErrorCard, Spinner } from "@/components/ui";
+import { AppShell } from "@/components/AppShell";
+import { Button, Card, ErrorCard, Skeleton } from "@/components/ui";
 import { useGate } from "@/components/useGate";
 import type { PlanResponse } from "@/lib/api-types";
-import { api, resetLearner } from "@/lib/client";
+import { api, onDayChange } from "@/lib/client";
 import { copy } from "@/lib/content";
+import { diffDays } from "@/lib/dates";
 
 export default function Done() {
   const router = useRouter();
@@ -22,37 +23,39 @@ export default function Done() {
   }
 
   useEffect(() => {
-    if (me) void load();
+    if (!me) return;
+    void load();
+    return onDayChange(() => void load());
   }, [me]);
 
-  if (gateError || error) return <Shell nav><ErrorCard message={gateError ?? error ?? ""} onRetry={gateError ? reload : load} /></Shell>;
-  if (!plan) return <Shell nav><Spinner /></Shell>;
+  if (gateError || error) {
+    return (
+      <AppShell me={me} title={copy.done.title}>
+        <ErrorCard message={gateError ?? error ?? ""} onRetry={gateError ? reload : load} />
+      </AppShell>
+    );
+  }
 
   return (
-    <Shell nav demoOffset={plan.demo_day_offset}>
-      <div className="space-y-6 pt-6 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-600 text-3xl text-white" aria-hidden>
-          ✓
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight">{copy.done.title}</h1>
-        <p className="text-lg text-stone-600">{copy.done.sub}</p>
-        <Card className="space-y-1">
-          <p className="text-lg font-semibold">{plan.course_title}</p>
-          <p className="text-stone-600">{copy.done.sessions(plan.sessions_done)}</p>
-        </Card>
-        <div className="grid gap-2">
-          <Button onClick={() => router.push("/plan")}>{copy.done.toPlan}</Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              resetLearner();
-              router.push("/");
-            }}
-          >
-            {copy.landing.startOver}
-          </Button>
-        </div>
+    <AppShell me={me} title={copy.done.title}>
+      <div className="mx-auto max-w-reading">
+        {!plan ? (
+          <Card>
+            <Skeleton lines={4} />
+          </Card>
+        ) : (
+          <Card band="green" bandIcon="check-circle" className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-small font-semibold text-ink-muted">{plan.course_title}</p>
+              <h1 className="text-display text-ink">{copy.done.title}</h1>
+              <p className="text-body-lg text-ink">{copy.done.line(plan.units_total, plan.sessions_done, diffDays(plan.today, plan.deadline))}</p>
+            </div>
+            <Button className="w-full sm:w-auto" onClick={() => router.push("/plan")}>
+              {copy.done.toPlan}
+            </Button>
+          </Card>
+        )}
       </div>
-    </Shell>
+    </AppShell>
   );
 }
