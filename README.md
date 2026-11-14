@@ -1,6 +1,6 @@
 # Finish-it coach
 
-Finish-it coach turns a course you already paid for into a daily 15-minute plan that adapts to what you get wrong and gets you to your finish date.
+Finish-it coach turns a course you already paid for into a daily plan sized to the time you have. It adapts to what you get wrong and gets you to your finish date.
 
 Built in 24 hours at Business Cup 2.0 (Nazarbayev University, November 2026) by team 7292.
 
@@ -21,6 +21,9 @@ The full design, data shapes and rules are in [`docs/PROJECT.md`](docs/PROJECT.m
 | Path | Contents |
 |---|---|
 | `ai/` | The three model calls and the output validator (Python, standard library only) |
+| `rules/` | Grading, next-lesson picking, pace, calendar and reminder timing, as plain code |
+| `tests/` | Unit tests for the rules |
+| `templates/` | Reminder email templates |
 | `prompts/` | System prompts, one per call |
 | `schemas/` | JSON schemas for the course plan and the lesson |
 | `sample/` | Sample course, sample profile, a validated course plan and one example lesson |
@@ -36,9 +39,17 @@ python ai/claude_calls.py
 
 This runs the setup call on `sample/course.txt` and writes `sample/course-plan.candidate.json`.
 
+## Run the tests
+
+```
+python -m unittest discover -s tests -v
+```
+
+The rules need no API key.
+
 ## Status
 
-The AI layer is tested end to end against the Claude API. The web app is in progress.
+The AI layer and the rules are tested, including the adaptation loop: a missed question is recorded, scheduled and asked again in a later lesson. The web app is in progress.
 
 ## Credits
 

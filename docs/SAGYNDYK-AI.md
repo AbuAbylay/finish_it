@@ -2,7 +2,7 @@
 
 Read `PROJECT.md` first. The data shapes are in its §4, the rules in §5, the lesson standards in §6 and the measured numbers in §12. This file covers only what you own and how you know each piece is done.
 
-**Status at 01:30:** the three calls, the validator, the prompts, the schemas and the sample course exist and passed an end-to-end run against the live API.
+**Status at 01:45:** the three calls, the validator, the prompts, the schemas, the sample course, the rules module and the reminder templates exist. The calls passed an end-to-end run against the live API, and the adaptation loop was proved at function level.
 
 ## What exists
 
@@ -17,6 +17,8 @@ Read `PROJECT.md` first. The data shapes are in its §4, the rules in §5, the l
 | `sample/course-plan.json` | A validated course plan for the sample course. The app loads this so jurors skip the setup wait. |
 | `sample/lesson-example.json` | One real lesson, for building the lesson page. |
 | `scripts/test_key.py` | Key check using the official SDK. |
+| `rules/rules.py`, `tests/test_rules.py` | Grading, next-lesson picking, pace, calendar and reminder timing, with 28 passing tests. Written to unblock Abylay, who owns it from here. |
+| `templates/reminders.json` | Ten reminder texts: two types, five blockers. |
 
 ## How the calls work
 
@@ -50,8 +52,8 @@ Each step is done only when its check passes.
    Done when PROJECT §11 records the choice.
 4. **Adaptation proof (by 07:00, with Abylay).** On the live link, answer one lesson question wrong.
    Done when the next lesson's `review_quiz` covers that concept and the `why` line names it.
-5. **Reminder templates (by 09:30).** Two types, `planned_day` and `missed_day`, one variant per `blocker` value, in `templates/reminders.json`. Variables: `{course_title}`, `{unit_title}`, `{minutes}`, `{lessons_left}`, `{days_left}`, `{link}`.
-   Done when Abylay's email preview renders all ten variants with real values.
+5. **Reminder templates (written; check by 09:30).** `templates/reminders.json` holds two types, `planned_day` and `missed_day`, with one variant per `blocker` value. Variables: `{course_title}`, `{unit_title}`, `{minutes}`, `{lessons_left}`, `{pace}`, `{goal}`, `{link}`. `rules.render_reminder` fills them.
+   Done when you have read all ten in Abylay's email preview and edited any wording you dislike.
 6. **Messy input test (by 09:30, only if upload is built).** Run `setup_course` on text extracted from a real PDF.
    Done when it returns a valid plan, or upload is cut from the demo.
 7. **Output review (before 11:00).** Read five generated lessons beside their excerpts.
@@ -75,7 +77,9 @@ Each step is done only when its check passes.
 Subject: {minutes} minutes keeps your {course_title} date alive
 
 Yesterday got away from you. Today's session is a short catch-up on {unit_title}:
-{minutes} minutes, then you're done. {lessons_left} lessons left, {days_left} study days to go.
+{minutes} minutes and you are done.
+
+{pace}
 
 {link}
 ```

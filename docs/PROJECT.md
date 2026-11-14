@@ -40,7 +40,7 @@ Paste this file into your AI tool first, then your own role file. This file is t
 
 ## 2. The product
 
-**One-liner:** Finish-it coach turns the course you already paid for into a daily 15-minute plan that adapts to what you get wrong and gets you to the finish date.
+**One-liner:** Finish-it coach turns the course you already paid for into a daily plan sized to the time you have, adapts to what you get wrong, and gets you to the finish date.
 
 **Target user (first market):** a working adult, about 28–40, preparing for a professional certification in the evenings, who paid for the prep and has fallen behind. Example certification: PMP (to be confirmed, see §11).
 
@@ -152,6 +152,8 @@ Survey questions map to fields in order: 1 course title, 2 goal, 3 success, 4 fo
 {
   "mode": "new",
   "minutes": 15,
+  "target_words": 330,
+  "sections": 3,
   "unit": {
     "unit_id": "u04",
     "title": "Identifying risks",
@@ -175,6 +177,8 @@ Survey questions map to fields in order: 1 course title, 2 goal, 3 success, 4 fo
 ```
 
 `mode` is `new`, `review` (repeat the same unit) or `catch_up` (short recap after missed days). Code writes `why`; the page shows it above the lesson.
+
+`minutes` is what the learner picks at the start of the session (10, 15, 20 or 30) and defaults to `minutes_per_day` from the profile. Code turns it into `target_words` and `sections`, so a shorter session gets a shorter lesson.
 
 ### 4.4 Lesson (output of the lesson call)
 
@@ -206,7 +210,7 @@ Survey questions map to fields in order: 1 course title, 2 goal, 3 success, 4 fo
 ```
 
 - `quiz`: 3 questions on the new unit. `review_quiz`: one question per entry in `review_concepts`, same shape.
-- Reading time fits `minutes` minus about 4 minutes for the quiz.
+- Length follows the order's `target_words` and `sections`.
 
 ### 4.5 Learner record (written only by code)
 
@@ -236,13 +240,15 @@ Unit `status` is one of `todo`, `known` (passed in the short test), `done`, `nee
 
 ## 5. Rules (plain code, no model)
 
+These rules are implemented in `rules/rules.py` and covered by 28 tests in `tests/test_rules.py`. Reminder texts are in `templates/reminders.json`.
+
 All date logic uses `today = real date + demo_day_offset`.
 
 **Grader (short test and lesson quizzes)**
 - `score` = correct answers / total answers, counted over `quiz` only. `review_quiz` answers move review intervals and leave `score` alone.
-- Short test: a correct answer sets that unit to `known`. Every other unit starts as `todo`.
+- Short test: a correct answer sets that unit to `known`. Every other unit starts as `todo`. A wrong answer in the short test changes nothing else: the unit is simply taught.
 - Lesson: `score` ≥ 0.6 sets the unit to `done`, otherwise `needs_review`.
-- Each wrong answer adds or updates a `missed_concepts` entry with `interval_step` 0 and `review_due` = the next study day.
+- Each wrong answer in a lesson adds or updates a `missed_concepts` entry with `interval_step` 0 and `review_due` = the next study day.
 - A correct answer in `review_quiz` moves the entry to the next interval in `[1, 3, 7]` days; after the last interval the entry is removed. A wrong one resets `interval_step` to 0.
 - Append a `sessions` entry, set `last_active`, update `streak`.
 
@@ -250,22 +256,27 @@ All date logic uses `today = real date + demo_day_offset`.
 
 With no session yet, start at rule 3.
 
-1. If one or more planned study days were missed since `last_active`: `mode` = `catch_up`, `minutes` = min(profile minutes, 10), unit = the last unit seen.
-2. Else if the last session's unit is `needs_review`: `mode` = `review`, same unit.
+1. If one or more planned study days were missed since `last_active`: `mode` = `catch_up`, `minutes` = min(session minutes, 10), unit = the last unit seen.
+2. Else if the last session's unit is `needs_review`: `mode` = `review`, same unit. After three tries in a row at one unit, move on and return to it once every other unit is covered.
 3. Else: `mode` = `new`, unit = the first unit in plan order with status `todo`.
 4. Add up to 2 `missed_concepts` with `review_due` ≤ today to `review_concepts`.
 5. Write `why` from the branch taken and the review concepts.
 6. When no `todo` or `needs_review` unit remains, show the finish screen.
 
+**Session length**
+- Session minutes = the learner's choice for today, else `minutes_per_day`, limited to 10 to 30.
+- Under 25 minutes, a session is one lesson of at most 20 minutes. From 25 minutes, it is two lessons of half the time each.
+- Lesson size: `target_words` = (`minutes` − 4) × 30; `sections` = 2 up to 10 minutes, 3 up to 15, 4 above.
+
 **Pace (calendar tracker)**
 - `lessons_left` = units with status `todo` or `needs_review`.
 - `days_left` = planned study days from today to `deadline`.
-- Show "on track" when `lessons_left` ≤ `days_left`, otherwise "behind by N lessons".
+- Show "on track" when `lessons_left` ≤ `days_left` × lessons per session, otherwise "behind by N lessons".
 
 **Reminders**
 - Planned-day reminder: on a study day with no session yet.
 - Missed-day reminder: the day after a planned study day with no session.
-- Text comes from templates with variables; the `blocker` field selects the tone.
+- Text comes from templates with variables (`{course_title}`, `{unit_title}`, `{minutes}`, `{lessons_left}`, `{pace}`, `{goal}`, `{link}`); the `blocker` field selects the tone.
 
 ## 6. Lesson and quiz standards
 
@@ -287,6 +298,7 @@ Adapted from Matt Pocock's teach skill (MIT).
 | Survey form, short test, initial record | Background generation of the next lesson | Sign-up and accounts |
 | Lesson call, lesson page, quiz, grader | Finish screen | Payments |
 | Next lesson visibly changes after a miss (`why` line) | Upload of the learner's own PDF or text | |
+| Time chooser at the start of a session (10, 15, 20, 30) | | |
 | Calendar tracker, skip-to-tomorrow, email preview (by 09:30) | | |
 
 ## 8. Team and ownership
@@ -336,6 +348,7 @@ Reference code is in `ai/` (Python, standard library only). Prompts are in `prom
 | Call | Model and effort | Time | Cost per call | Result |
 |---|---|---|---|---|
 | Setup | Haiku 5.5 | 30 to 57 s | about $0.005 | 5 of 6 runs passed every check; the sixth failed one option-length check |
+| Lesson at 10, 15, 20 minutes | Sonnet 5.5, medium effort | 9 to 11 s | about $0.02 | 173, 311 and 351 words in 2, 3 and 4 sections |
 | Lesson | Sonnet 5.5, medium effort | 10 to 11 s | about $0.023 | All three modes passed |
 | Lesson | Sonnet 5.5, default effort | 21 to 28 s | $0.033 to $0.047 | Passed; slower with no visible gain |
 | Lesson | Haiku 5.5, low effort | about 7 s | about $0.001 | Passed; plainer writing |
@@ -344,3 +357,5 @@ Reference code is in `ai/` (Python, standard library only). Prompts are in `prom
 - The setup call is slow enough to need a progress screen. The sample course skips it by loading `sample/course-plan.json`.
 - Structured output cannot enforce array lengths, so counts (4 options, 3 quiz questions, 5 test questions) are checked by `ai/validator.py`.
 - The `effort` setting is passed as `output_config.effort`.
+- Adaptation was proved at function level at 01:45: one quiz question was answered wrong, `rules.grade_lesson` recorded the concept, `rules.pick_next` put it into the next order, and the next lesson's review question covered it.
+- A formula in the prompt did not change lesson length. An explicit `target_words` and `sections` in the order did.

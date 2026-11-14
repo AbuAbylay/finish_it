@@ -16,7 +16,7 @@ Fill this in by 01:00 so every AI tool on the team knows it.
 
 ## What you receive
 
-- From Sagyndyk: a tested Python reference in `ai/` with `setup_course`, `write_lesson`, `side_chat` and the validator, plus `prompts/`, `schemas/`, `sample/course.txt`, `sample/profile.json`, `sample/course-plan.json`, `sample/lesson-example.json` and later `templates/reminders.json`. Inputs and outputs are the shapes in PROJECT §4. If your backend is not Python, either port the two files (about 250 lines, standard library only) or run them as a small service.
+- From Sagyndyk: a tested Python reference in `ai/` with `setup_course`, `write_lesson`, `side_chat` and the validator, plus `prompts/`, `schemas/`, `sample/course.txt`, `sample/profile.json`, `sample/course-plan.json`, `sample/lesson-example.json` and `templates/reminders.json`. Inputs and outputs are the shapes in PROJECT §4. If your backend is not Python, either port the two files (about 250 lines, standard library only) or run them as a small service.
 - `sample/lesson-example.json` is a real lesson you can build the lesson page against before the live call is wired.
 - From Al-Farabi: all on-page wording, including the eight survey questions with answer choices.
 
@@ -32,7 +32,7 @@ Each step is done only when its check passes.
    Done when a record round-trips through save and load unchanged.
 4. **Setup flow (by 04:30).** Landing with "Start with the sample course", survey form, short test.
    Done when a new guest finishes the survey and the short test on the live link, and the record shows `known` and `todo` units that match their answers.
-5. **Rules (by 04:30).** The grader and the next-unit picker from PROJECT §5, as pure functions with unit tests.
+5. **Rules (by 04:30).** Already written and tested in Python: `rules/rules.py` holds `new_record`, `grade_placement`, `grade_lesson`, `pick_next`, `pace`, `calendar`, `reminder_due`, `render_reminder`, `skip_day` and `today_for`. Use it as is or port it, and keep `tests/test_rules.py` passing.
    Done when tests cover every branch: `new`, `review`, `catch_up`, a review item coming due, the `[1, 3, 7]` interval steps, and the finish state.
 6. **Lesson loop (by 07:00).** Lesson page that renders a lesson, shuffles options, collects answers and calls the grader.
    Done when, on the live link, a wrong answer leads to a next lesson that opens with the `why` line and includes that concept in its review questions.
@@ -54,7 +54,7 @@ Build these only after step 10: upload of a learner's own PDF or text, real emai
 | `/` | One-liner, "Start with the sample course", no login |
 | `/survey` | Eight questions, mostly tap-to-choose |
 | `/test` | Five placement questions |
-| `/lesson` | `why` line, sections, key points, quiz, result, "next lesson" |
+| `/lesson` | Time chooser (10, 15, 20, 30 minutes), `why` line, sections, key points, quiz, result, "next lesson" |
 | `/plan` | Calendar tracker, pace line, units with status, email preview, skip-to-tomorrow |
 | `/done` | Finish screen when no unit is left |
 
@@ -65,7 +65,7 @@ Build these only after step 10: upload of a learner's own PDF or text, real emai
 | `POST /api/profile` | Saves the survey into the record |
 | `POST /api/course` | Sample: loads the saved plan. Upload: calls `setupCourse`, validates, stores |
 | `POST /api/placement` | Grades the short test, writes the initial unit statuses |
-| `GET /api/lesson` | Picks the next unit, builds the order, returns a cached lesson or calls `writeLesson` |
+| `GET /api/lesson?minutes=15` | Calls `pick_next` with today's minutes, then returns a cached lesson or calls `write_lesson` |
 | `POST /api/answers` | Grades a lesson, updates the record, returns the result |
 | `GET /api/plan` | Calendar data and the pace line |
 | `POST /api/demo/skip-day` | Adds 1 to `demo_day_offset` |
