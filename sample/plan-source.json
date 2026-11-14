@@ -1,0 +1,131 @@
+{
+  "title": "PMP exam prep",
+  "units": [
+    {
+      "heading": "What a project is",
+      "title": "What a project is",
+      "objective": "Tell a project apart from ongoing operations and say what authorizes it",
+      "prerequisites": []
+    },
+    {
+      "heading": "Scope, schedule and cost",
+      "title": "Scope, schedule and cost",
+      "objective": "Show how a change to scope, schedule or cost affects the other two",
+      "prerequisites": ["u01"]
+    },
+    {
+      "heading": "Stakeholders",
+      "title": "Stakeholders",
+      "objective": "Sort stakeholders by power and interest and plan how to engage each group",
+      "prerequisites": ["u01"]
+    },
+    {
+      "heading": "Breaking down the scope",
+      "title": "Breaking down the scope",
+      "objective": "Break a project's scope into work packages and spot scope creep",
+      "prerequisites": ["u02"]
+    },
+    {
+      "heading": "The critical path",
+      "title": "The critical path",
+      "objective": "Find the critical path and the float in a simple schedule",
+      "prerequisites": ["u04"]
+    },
+    {
+      "heading": "Identifying risks",
+      "title": "Identifying risks",
+      "objective": "Write a clear risk statement and rate a risk by probability and impact",
+      "prerequisites": ["u01"]
+    },
+    {
+      "heading": "Responding to risks",
+      "title": "Responding to risks",
+      "objective": "Choose a fitting response for a threat or an opportunity",
+      "prerequisites": ["u06"]
+    },
+    {
+      "heading": "Earned value",
+      "title": "Earned value",
+      "objective": "Work out whether a project is on schedule and on budget from three numbers",
+      "prerequisites": ["u02", "u05"]
+    },
+    {
+      "heading": "Agile delivery",
+      "title": "Agile delivery",
+      "objective": "Decide when an agile approach fits and describe how one iteration runs",
+      "prerequisites": ["u01"]
+    }
+  ],
+  "placement_test": [
+    {
+      "unit": "u01",
+      "concept": "project vs operations",
+      "prompt": "A clinic is sorting four pieces of work. Which one is a project rather than operations?",
+      "options": [
+        "Sending appointment reminders to patients every evening",
+        "Ordering medical supplies whenever the stock runs low",
+        "Moving all patient records onto a new booking system",
+        "Cleaning and preparing the treatment rooms each day"
+      ],
+      "correct_index": 2,
+      "explanation": "A project is temporary and produces something unique. Moving the records to a new system has a defined end and a one-time result. The other three repeat with no planned end, so they are operations.",
+      "source_quote": "Building a new payroll system is a project; running payroll with that system afterwards is operations."
+    },
+    {
+      "unit": "u02",
+      "concept": "trade-off between constraints",
+      "prompt": "Three weeks before a fixed launch date, the sponsor asks for one more report to be added. What should the project manager do first?",
+      "options": [
+        "Show what the report does to time and cost, then ask the sponsor to choose",
+        "Add the report quietly and ask the team to work evenings until the launch",
+        "Refuse the request, because the scope was agreed when the project began",
+        "Shorten the testing period so that the report fits before the launch date"
+      ],
+      "correct_index": 0,
+      "explanation": "The constraints are linked, so added scope has to be paid for in time, money or quality. The project manager makes that trade-off visible and lets the sponsor decide, instead of absorbing it or refusing outright.",
+      "source_quote": "A good project manager makes these trade-offs visible and asks the sponsor to choose, instead of quietly absorbing the change."
+    },
+    {
+      "unit": "u05",
+      "concept": "critical path and float",
+      "prompt": "A project has two parallel routes. Activities A then B take 6 and 8 days; activities C then D take 3 and 4 days. One activity can be shortened by two days. Which choice brings the finish date forward?",
+      "options": [
+        "Shorten activity C, because it starts the shorter route",
+        "Shorten activity D, because it ends the shorter route",
+        "Shorten either C or D, because both have float to spare",
+        "Shorten activity B, because it lies on the longest route"
+      ],
+      "correct_index": 3,
+      "explanation": "A then B is the longest route at 14 days, so it is the critical path and sets the finish date. C then D takes 7 days and has 7 days of float, so shortening it changes nothing.",
+      "source_quote": "When a project must finish sooner, the project manager looks at critical path activities first, because shortening other activities does not change the finish date."
+    },
+    {
+      "unit": "u07",
+      "concept": "choosing a risk response",
+      "prompt": "A team fears that a custom part may arrive late, so it signs a fixed-price contract under which the supplier pays the cost of any delay. Which risk response is this?",
+      "options": [
+        "Avoid, because the plan was changed so that the risk cannot happen",
+        "Transfer, because another party now carries the cost of the risk",
+        "Mitigate, because the team acted early to make the risk less likely",
+        "Accept, because the team set money aside in case the risk occurs"
+      ],
+      "correct_index": 1,
+      "explanation": "The part can still arrive late, so the risk is not avoided, and nothing has made it less likely. The contract shifts the financial impact to the supplier, which is a transfer.",
+      "source_quote": "To transfer a risk is to shift its financial impact to a third party, typically through insurance, a warranty, or a fixed-price contract."
+    },
+    {
+      "unit": "u09",
+      "concept": "when agile fits",
+      "prompt": "A startup is building its first mobile app and expects users' wishes to change after every release. Which way of working fits best?",
+      "options": [
+        "Plan every feature in detail now and build them in one long sequence",
+        "Freeze the requirements at the start and deliver everything at the end",
+        "Work in short iterations and let feedback decide what is built next",
+        "Fix the full scope first, then estimate the time and cost to deliver it"
+      ],
+      "correct_index": 2,
+      "explanation": "When requirements are expected to change, short iterations that deliver working pieces and collect feedback let the plan follow what the team learns. The other three fix the scope before anything has been learned.",
+      "source_quote": "Agile suits projects where requirements are expected to change as the team learns, such as a new consumer app whose users have not yet said what they want."
+    }
+  ]
+}

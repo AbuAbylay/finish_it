@@ -1,4 +1,4 @@
-// The preloaded sample course. sample/course-plan.json (from the AI layer) wins over the dev fixture.
+// The preloaded sample course. sample/course-plan.json (built by scripts/build-sample-plan.mjs) wins over the dev fixture.
 import "server-only";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
