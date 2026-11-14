@@ -29,6 +29,19 @@ export function planView({ record, plan, today }: SetUp) {
     pace: pace(record, plan, today),
     streak: currentStreak(record, today),
     sessions_done: record.sessions.length,
+    units_done: plan.units.filter((u) => ["done", "known"].includes(record.units[u.unit_id]?.status ?? "todo")).length,
+    units_total: plan.units.length,
+    reviews: [...record.missed_concepts]
+      .sort((a, b) => a.review_due.localeCompare(b.review_due))
+      .map((m) => ({
+        concept: m.concept,
+        unit_id: m.unit_id,
+        unit_title: plan.units.find((u) => u.unit_id === m.unit_id)?.title ?? m.unit_id,
+        review_due: m.review_due,
+        due_now: m.review_due <= today,
+        times_missed: m.times_missed,
+        interval_step: m.interval_step,
+      })),
     studied_today: record.sessions.some((s) => s.date === today),
     units: plan.units.map((u) => ({
       unit_id: u.unit_id,
