@@ -14,7 +14,7 @@ Next.js 15 on Vercel with a Turso (libSQL) database. Push-to-deploy from GitHub 
 | `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | once `ai/real.ts` is switched on | see docs/INTEGRATION.md |
 | `LESSON_CAP_PER_LEARNER`, `LESSON_CAP_PER_IP`, `LESSON_CAP_GLOBAL` | optional | defaults 25 / 150 / 1000 per 24 h |
 
-Without `TURSO_DATABASE_URL` the app refuses to start on Vercel, by design: there is no writable local database there.
+Without `TURSO_DATABASE_URL`, every API call on Vercel fails with a server error and `/api/health` returns 503. This is by design: there is no writable local database there.
 
 4. **Schema:** nothing to run. Migrations in `lib/migrations.ts` apply automatically on the first request and are recorded in `schema_migrations`.
 
