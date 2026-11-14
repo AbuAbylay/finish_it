@@ -1,0 +1,138 @@
+{
+  "title": "Project management fundamentals",
+  "units": [
+    {
+      "unit_id": "u01",
+      "title": "What a project is",
+      "objective": "Tell a project apart from ongoing operations",
+      "excerpt": "A project is a temporary effort undertaken to create a unique product, service, or result. Temporary means every project has a defined beginning and a defined end; it does not mean the project is short. Operations, by contrast, are ongoing and repetitive work that keeps an organization running, such as processing payroll every month. A project ends when its objectives are met, when it is terminated because the objectives cannot be met, or when the need for it no longer exists. Building a new payroll system is a project; running payroll with it afterwards is operations.",
+      "prerequisites": []
+    },
+    {
+      "unit_id": "u02",
+      "title": "Scope, schedule and cost",
+      "objective": "Explain a trade-off between scope, schedule and cost to a sponsor",
+      "excerpt": "Every project balances three competing constraints: scope, schedule, and cost. Scope is the work that must be done, schedule is the time available to do it, and cost is the budget. The constraints are linked, so a change to one usually affects at least one of the others. If a sponsor adds features without moving the deadline, the team will need more money or more people, or quality will suffer. A good project manager makes these trade-offs visible and asks the sponsor to choose, instead of quietly absorbing the change.",
+      "prerequisites": ["u01"]
+    },
+    {
+      "unit_id": "u03",
+      "title": "Stakeholders",
+      "objective": "Sort stakeholders by influence and interest and decide how closely to manage each",
+      "excerpt": "A stakeholder is any person or group who can affect the project or be affected by it. Stakeholders include the sponsor, the team, customers, end users, suppliers, and sometimes regulators. The project manager identifies stakeholders early and records them in a stakeholder register, noting each person's interest, influence, and expectations. Stakeholders with high influence and high interest are managed closely and consulted often. Those with low influence and low interest are monitored with minimal effort. Ignoring a powerful stakeholder until late in the project is one of the most common causes of rework.",
+      "prerequisites": ["u01"]
+    },
+    {
+      "unit_id": "u04",
+      "title": "Breaking down the scope",
+      "objective": "Decide whether a request is in scope using the work breakdown structure",
+      "excerpt": "The work breakdown structure, or WBS, divides the total scope of the project into smaller, manageable pieces. The lowest level of the WBS is called a work package, and it is small enough to be estimated, assigned, and tracked. The WBS describes deliverables, not activities, so its entries are nouns such as 'training manual' rather than verbs such as 'write manual'. Work that is not in the WBS is not part of the project. This rule protects the team from scope creep, the slow growth of scope through small requests that are never formally approved.",
+      "prerequisites": ["u02"]
+    },
+    {
+      "unit_id": "u05",
+      "title": "The critical path",
+      "objective": "Find which activities can delay the finish date",
+      "excerpt": "A project schedule turns work packages into activities with durations and dependencies. The critical path is the longest sequence of dependent activities through the schedule, and it sets the earliest date the project can finish. Activities on the critical path have zero float, which means any delay to them delays the whole project. Activities off the critical path have some float and can slip a little without moving the end date. When a project manager needs to finish sooner, they look at critical path activities first, because shortening other activities does not change the finish date.",
+      "prerequisites": ["u04"]
+    },
+    {
+      "unit_id": "u06",
+      "title": "Identifying risks",
+      "objective": "Tell a risk from an issue and rate a risk by probability and impact",
+      "excerpt": "A risk is an uncertain event that, if it happens, will affect at least one project objective. An issue is different: it is a problem that is already happening and needs action now. Risks are identified early and recorded in a risk register with their cause, their possible effect, and an owner. Each risk is then rated by probability, how likely it is to happen, and by impact, how much it would hurt. Multiplying the two gives a simple score that helps the team decide which risks deserve attention first. Risks can also be positive, and these are called opportunities.",
+      "prerequisites": ["u01"]
+    },
+    {
+      "unit_id": "u07",
+      "title": "Responding to risks",
+      "objective": "Choose between avoiding, transferring, mitigating and accepting a risk",
+      "excerpt": "For each important threat the team chooses a response strategy. To avoid a risk is to change the plan so the risk can no longer happen, for example by dropping a risky feature. To transfer a risk is to shift its impact to a third party, most often through insurance or a fixed-price contract. To mitigate a risk is to reduce its probability or its impact, such as adding extra testing before launch. To accept a risk is to take no action in advance, often while setting aside a contingency reserve of time or money. Every response has an owner who makes sure it happens.",
+      "prerequisites": ["u06"]
+    },
+    {
+      "unit_id": "u08",
+      "title": "Agile delivery",
+      "objective": "Decide when short iterations fit a project better than fixed phases",
+      "excerpt": "Agile approaches deliver a project in short iterations, often two to four weeks long, instead of one long sequence of phases. The product owner keeps a prioritized product backlog, and at the start of each iteration the team pulls the most valuable items it can finish. At the end of the iteration the team shows working results to stakeholders in a review and collects feedback. A retrospective follows, where the team discusses how it worked and agrees on one or two improvements. Agile suits projects where requirements are expected to change as the team learns.",
+      "prerequisites": ["u01"]
+    }
+  ],
+  "placement_test": [
+    {
+      "question_id": "p01",
+      "unit_id": "u01",
+      "concept": "project vs operations",
+      "prompt": "Which of these is a project rather than ongoing operations?",
+      "options": [
+        "Running the company's monthly payroll on the current system",
+        "Answering customer support emails as they arrive each day",
+        "Moving the company's payroll onto a new software system",
+        "Restocking the warehouse shelves every Monday morning"
+      ],
+      "correct_index": 2,
+      "explanation": "A project is temporary and creates something unique. Building the new payroll system is a project; running payroll is operations.",
+      "source_quote": "Building a new payroll system is a project; running payroll with it afterwards is operations."
+    },
+    {
+      "question_id": "p02",
+      "unit_id": "u02",
+      "concept": "scope, schedule and cost trade-off",
+      "prompt": "A sponsor adds two features but keeps the same deadline. What should the project manager do first?",
+      "options": [
+        "Show the trade-off and ask the sponsor which constraint gives",
+        "Absorb the extra work and ask the team to work longer hours",
+        "Refuse the new features because the scope was already agreed",
+        "Cut the testing time so the original deadline can still be met"
+      ],
+      "correct_index": 0,
+      "explanation": "The constraints are linked, so the project manager makes the trade-off visible and lets the sponsor choose.",
+      "source_quote": "A good project manager makes these trade-offs visible and asks the sponsor to choose, instead of quietly absorbing the change."
+    },
+    {
+      "question_id": "p03",
+      "unit_id": "u04",
+      "concept": "work outside the WBS",
+      "prompt": "A stakeholder asks for a small extra report that is not in the WBS. How should it be treated?",
+      "options": [
+        "As part of the project, because the request is small and helpful",
+        "As a work package, because it is small enough to be assigned",
+        "As an activity, because the WBS lists only deliverables as nouns",
+        "As new scope that needs approval before the team starts on it"
+      ],
+      "correct_index": 3,
+      "explanation": "Work that is not in the WBS is not part of the project. Taking it on without approval is scope creep.",
+      "source_quote": "Work that is not in the WBS is not part of the project."
+    },
+    {
+      "question_id": "p04",
+      "unit_id": "u06",
+      "concept": "risk vs issue",
+      "prompt": "Which statement describes a risk rather than an issue?",
+      "options": [
+        "The key supplier missed yesterday's delivery of parts",
+        "The key supplier might go out of business before delivery",
+        "The test server crashed this morning and is still down",
+        "Two team members are off sick for the rest of the week"
+      ],
+      "correct_index": 1,
+      "explanation": "A risk is uncertain and lies in the future. The other three are already happening, so they are issues.",
+      "source_quote": "A risk is an uncertain event that, if it happens, will affect at least one project objective."
+    },
+    {
+      "question_id": "p05",
+      "unit_id": "u08",
+      "concept": "when agile fits",
+      "prompt": "The requirements on a project are expected to change often. Which approach fits best?",
+      "options": [
+        "One long sequence of phases with requirements frozen at the start",
+        "A detailed schedule built once and never revised after approval",
+        "Short iterations that deliver working results and gather feedback",
+        "A single delivery at the end, after every feature is fully built"
+      ],
+      "correct_index": 2,
+      "explanation": "Agile delivers in short iterations and collects feedback, which suits requirements that change as the team learns.",
+      "source_quote": "Agile suits projects where requirements are expected to change as the team learns."
+    }
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "planned_day": {
+    "time": {
+      "subject": "{minutes} minutes for {course_title} today",
+      "body": "Today's session is ready: {unit_title}.\nIt takes {minutes} minutes, so it fits before dinner or after the kids are asleep.\n\n{lessons_left} lessons left, {days_left} study days to your exam.\n\n{link}"
+    },
+    "motivation": {
+      "subject": "One small step on {course_title}",
+      "body": "You don't need to feel like it. You only need {minutes} minutes.\nToday: {unit_title}.\n\n{lessons_left} lessons left, {days_left} study days to go. Every one you finish counts.\n\n{link}"
+    },
+    "difficulty": {
+      "subject": "Today's {course_title} lesson is built around you",
+      "body": "Today: {unit_title}, in plain words with one worked example, then three practice questions.\nAnything you miss comes back later, so you never have to get it all at once.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "forgetting": {
+      "subject": "Today's review keeps {course_title} fresh",
+      "body": "Today: {unit_title}, plus a quick question on anything you missed before, so it sticks.\n{minutes} minutes.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "other": {
+      "subject": "Your {course_title} session is ready",
+      "body": "Today: {unit_title}. {minutes} minutes.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    }
+  },
+  "missed_day": {
+    "time": {
+      "subject": "{minutes} minutes keeps your {course_title} date alive",
+      "body": "Yesterday got away from you. Today's session is a short catch-up on {unit_title}:\n{minutes} minutes, then you're done.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "motivation": {
+      "subject": "Missed a day? That's normal. Today is short.",
+      "body": "One missed day doesn't undo anything. Today is a {minutes}-minute catch-up on {unit_title}, and you're back on the plan.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "difficulty": {
+      "subject": "A gentler way back into {course_title}",
+      "body": "Today is a short recap of {unit_title}, then one small step forward. {minutes} minutes.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "forgetting": {
+      "subject": "A quick recap before {unit_title} fades",
+      "body": "You skipped yesterday, so today starts with a short recap of {unit_title}. {minutes} minutes keeps it in your head.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    },
+    "other": {
+      "subject": "Pick {course_title} back up in {minutes} minutes",
+      "body": "Yesterday's session was missed. Today is a short catch-up on {unit_title}.\n\n{lessons_left} lessons left, {days_left} study days to go.\n\n{link}"
+    }
+  }
+}
