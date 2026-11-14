@@ -1,26 +1,33 @@
 #!/usr/bin/env node
-// End-to-end check of the juror path over HTTP, as a brand-new guest.
+// End-to-end check of the juror path over HTTP, as a brand-new guest with a generated ID.
 // Usage: node scripts/e2e.mjs [base-url]     (default http://localhost:3000)
 // Each run writes 3 lessons, so against production it spends 3 lesson generations.
+// It does not trigger the ID lookup rate limit (one unknown-ID lookup per run).
 
 const BASE = (process.argv[2] || process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
-const learnerId = crypto.randomUUID();
 let failures = 0;
 
-async function call(method, path, body, headers = {}) {
-  const res = await fetch(BASE + path, {
-    method,
-    headers: { "content-type": "application/json", "x-learner-id": learnerId, "x-timezone": "UTC", ...headers },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await res.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = text;
-  }
-  return { status: res.status, data };
+/** A browser stand-in: keeps the session cookie between calls. */
+function jar() {
+  let cookie = "";
+  return async function call(method, path, body) {
+    const res = await fetch(BASE + path, {
+      method,
+      redirect: "manual",
+      headers: { "content-type": "application/json", "x-timezone": "UTC", ...(cookie ? { cookie } : {}) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const set = res.headers.get("set-cookie");
+    if (set) cookie = set.split(";")[0];
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+    return { status: res.status, data };
+  };
 }
 
 function check(name, ok, detail = "") {
@@ -29,141 +36,165 @@ function check(name, ok, detail = "") {
   return ok;
 }
 
-function step(title) {
-  console.log(`\n${title}`);
-}
-
-/** No answer key may reach the browser before submission. */
-function leaks(questions) {
-  return questions.some((q) => "correct_index" in q || "explanation" in q || "source_quote" in q);
-}
-
+const step = (title) => console.log(`\n${title}`);
+const leaks = (questions) => questions.some((q) => "correct_index" in q || "explanation" in q || "source_quote" in q);
 const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 
-async function run() {
-  console.log(`E2E against ${BASE} as guest ${learnerId}`);
+/** Answers every question of the open lesson through the check endpoint, then grades it. */
+async function answerLesson(call, lesson, pick) {
+  const feedback = {};
+  for (const q of [...lesson.lesson.review_quiz, ...lesson.lesson.quiz]) {
+    const c = await call("POST", "/api/answers/check", { lesson_key: lesson.lesson_key, question_id: q.question_id, choice: pick(q) });
+    feedback[q.question_id] = c.data.feedback;
+  }
+  const graded = await call("POST", "/api/answers", { lesson_key: lesson.lesson_key });
+  return { feedback, graded };
+}
 
-  step("1. Guest start, no account");
-  const home = await call("GET", "/");
-  check("landing page loads", home.status === 200 && String(home.data).includes("<html"), home.status);
+async function run() {
+  console.log(`E2E against ${BASE}`);
+  const call = jar();
+  const known = new Map(); // prompt -> correct option text, learned from revealed answers
+
+  step("1. ID entry: one tap to a new ID, no account");
+  const enterPage = await call("GET", "/enter");
+  check("/enter loads", enterPage.status === 200 && String(enterPage.data).includes("<html"), enterPage.status);
+  check("signed-out API calls get 401", (await call("GET", "/api/me")).status === 401);
+  const gen = await call("POST", "/api/identity/generate");
+  check("Generate ID signs in", gen.status === 200 && /^[0-9a-z]{5}(-[0-9a-z]{5}){3}$/.test(gen.data.login_id ?? ""), gen.data);
+  const loginId = gen.data.login_id;
   let me = await call("GET", "/api/me");
-  check("new guest is at stage 'start'", me.data.stage === "start", me.data);
-  const course = await call("POST", "/api/course", { source: "sample" });
-  check("sample course loads", course.status === 200 && course.data.title, course.data);
-  me = await call("GET", "/api/me");
-  check("stage moves to 'survey'", me.data.stage === "survey", me.data);
-  const units = me.data.course?.units ?? [];
-  check("course plan has 6 to 10 units", units.length >= 6 && units.length <= 10, units.length);
+  check("stage is 'survey' with the sample course attached", me.data.stage === "survey" && me.data.course?.units?.length >= 6, me.data);
+  check("the sidebar ID matches", me.data.login_id === loginId);
+  const units = me.data.course.units;
+
+  const other = jar();
+  const typed = await other("POST", "/api/identity/enter", { login_id: ` ${loginId.toUpperCase()} ` });
+  const meOther = await other("GET", "/api/me");
+  check("the same ID typed in another window returns to the same learner", typed.status === 200 && meOther.data.client_key === me.data.client_key, meOther.data);
+  const unknown = await jar()("POST", "/api/identity/enter", { login_id: "zzzzz-zzzzz-zzzzz-zzzzz" });
+  check("an unknown ID gets a friendly message", unknown.status === 404 && /recognise/.test(unknown.data.error ?? ""), unknown);
 
   step("2. Survey");
   const today0 = me.data.today;
   const profile = {
-    course_title: me.data.course.title,
+    course_title: "PMP exam prep",
     goal: "Move into a project manager role",
-    success: "Pass the exam on the first attempt",
+    success: "Pass the PMP exam on the first attempt",
     focus: [units[1].title],
     skip: [],
     minutes_per_day: 15,
     study_days: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
     deadline: addDays(today0, 14),
-    prior_knowledge: "Some hands-on experience, no formal training",
+    prior_knowledge: "Leads projects, self-taught, no formal training",
     blocker: "time",
-    blocker_note: "",
+    blocker_note: "Evenings disappear",
   };
-  const bad = await call("POST", "/api/profile", { profile: { ...profile, blocker: "nope" } });
-  check("invalid survey answers are rejected", bad.status === 400, bad);
-  const saved = await call("POST", "/api/profile", { profile });
-  check("survey saves", saved.status === 200, saved.data);
+  check("invalid survey answers are rejected", (await call("POST", "/api/profile", { profile: { ...profile, blocker: "nope" } })).status === 400);
+  check("survey saves", (await call("POST", "/api/profile", { profile })).status === 200);
 
   step("3. Short test");
-  const placement = await call("GET", "/api/placement");
-  const pq = placement.data.questions ?? [];
-  check("5 placement questions", pq.length === 5, pq.length);
-  check("no answers leak before submission", !leaks(pq), pq[0]);
-  const pAnswers = Object.fromEntries(pq.map((q, i) => [q.question_id, i === 0 ? -1 : 0]));
-  const graded = await call("POST", "/api/placement", { answers: pAnswers });
+  const pq = (await call("GET", "/api/placement")).data.questions ?? [];
+  check("5 placement questions, no answers leaked", pq.length === 5 && !leaks(pq), pq[0]);
+  const graded = await call("POST", "/api/placement", { answers: Object.fromEntries(pq.map((q, i) => [q.question_id, i === 0 ? -1 : 0])) });
   check("short test is graded", graded.status === 200, graded.data);
-  const plan1 = await call("GET", "/api/plan");
-  const statusOf = Object.fromEntries(plan1.data.units.map((u) => [u.unit_id, u.status]));
-  const expectKnown = new Set(graded.data.results.filter((r) => r.correct).map((r) => r.unit_id));
+  const knownUnits = new Set(graded.data.results.filter((r) => r.correct).map((r) => r.unit_id));
+  let list = (await call("GET", "/api/lessons")).data.items;
   check(
-    "record has 'known' exactly for correct answers, 'todo' elsewhere",
-    plan1.data.units.every((u) => (expectKnown.has(u.unit_id) ? u.status === "known" : u.status === "todo")),
-    statusOf,
+    "units match the answers: 'known' for correct, exactly one 'next', the rest 'locked'",
+    list.every((i) => (knownUnits.has(i.unit_id) ? i.state === "known" : ["next", "locked"].includes(i.state))) &&
+      list.filter((i) => i.state === "next").length === 1,
+    list.map((i) => `${i.unit_id}:${i.state}`),
   );
+  const firstOpen = list.find((i) => i.state === "next").unit_id;
+  const aLocked = list.find((i) => i.state === "locked");
+  if (aLocked) {
+    const locked = await call("GET", `/api/lesson?unit=${aLocked.unit_id}`);
+    check("a locked unit's lesson is refused (403 locked)", locked.status === 403 && locked.data.code === "locked", locked);
+  }
 
-  step("4. First lesson");
+  step("4. First lesson, one question wrong on purpose");
   const t0 = Date.now();
-  const l1 = await call("GET", "/api/lesson");
-  check(`lesson returned (${Date.now() - t0} ms)`, l1.status === 200 && l1.data.lesson, l1.data);
-  const lesson1 = l1.data.lesson;
-  check("mode is 'new' with a why line", l1.data.order.mode === "new" && l1.data.order.why.length > 0, l1.data.order);
-  check("3 quiz questions", lesson1.quiz.length === 3, lesson1.quiz.length);
-  check("every section has a source quote", lesson1.sections.every((s) => s.source_quote), lesson1.sections);
-  check("no answers leak before submission", !leaks([...lesson1.quiz, ...lesson1.review_quiz]), lesson1.quiz[0]);
-  const again = await call("GET", "/api/lesson");
-  check("refresh returns the same cached lesson", again.data.lesson_key === l1.data.lesson_key);
+  const l1 = (await call("GET", "/api/lesson")).data;
+  check(`lesson returned (${Date.now() - t0} ms)`, !!l1.lesson && l1.lesson.unit_id === firstOpen, l1);
+  check("mode 'new', why line, 3 quiz questions, a source quote per section", l1.order?.mode === "new" && l1.order.why && l1.lesson.quiz.length === 3 && l1.lesson.sections.every((s) => s.source_quote), l1.order);
+  check("no answers leak before checking", !leaks([...l1.lesson.quiz, ...l1.lesson.review_quiz]));
+  check("refresh returns the same cached lesson", (await call("GET", "/api/lesson")).data.lesson_key === l1.lesson_key);
+  const firstQ = l1.lesson.quiz[0];
+  const r1 = await answerLesson(call, l1, (q) => (q.question_id === firstQ.question_id ? -1 : 0));
+  for (const q of l1.lesson.quiz) known.set(q.prompt, q.options[r1.feedback[q.question_id].correct_index]);
+  const relock = await call("POST", "/api/answers/check", { lesson_key: l1.lesson_key, question_id: firstQ.question_id, choice: 0 });
+  check("an answer cannot be changed after it is checked", relock.data.feedback?.chosen === -1, relock.data);
+  check("answers graded", r1.graded.status === 200 && r1.graded.data.result, r1.graded.data);
+  const missed = r1.graded.data.result.quiz[0].concept;
+  check(`missed concept "${missed}" is scheduled`, r1.graded.data.result.coming_back.some((c) => c.concept === missed));
+  const reopened = await call("GET", `/api/lesson?key=${l1.lesson_key}`);
+  check("the graded lesson reopens with its result (refresh keeps progress)", reopened.data.result?.score === r1.graded.data.result.score);
+  list = (await call("GET", "/api/lessons")).data.items;
+  const s1 = list.find((i) => i.unit_id === firstOpen);
+  if (r1.graded.data.result.status === "needs_review") {
+    check("failed: the same unit stays the open one, as a review", s1.state === "next" && s1.mode === "review", s1);
+  } else {
+    check("passed: the unit is done and the next one unlocked", s1.state === "done" && list.filter((i) => i.state === "next").length === 1, list);
+  }
 
-  step("5. One wrong answer");
-  const answers1 = Object.fromEntries(lesson1.quiz.map((q, i) => [q.question_id, i === 0 ? -1 : 0]));
-  const r1 = await call("POST", "/api/answers", { lesson_key: l1.data.lesson_key, answers: answers1 });
-  check("answers graded", r1.status === 200 && r1.data.result, r1.data);
-  const missed = r1.data.result.quiz[0].concept;
-  check(`missed concept "${missed}" is scheduled`, r1.data.result.coming_back.some((c) => c.concept === missed), r1.data.result.coming_back);
-  check("answers revealed after submission", Number.isInteger(r1.data.result.quiz[0].correct_index));
-  const dup = await call("POST", "/api/answers", { lesson_key: l1.data.lesson_key, answers: answers1 });
-  check("double submit is not graded twice", dup.data.already_graded === true, dup.data);
-  const reopened = await call("GET", `/api/lesson?key=${l1.data.lesson_key}`);
-  check("graded lesson reopens with its result (refresh keeps progress)", reopened.data.result?.score === r1.data.result.score);
-
-  step("6. Skip to tomorrow: the next lesson changes");
-  const skip1 = await call("POST", "/api/demo/skip-day");
-  check("demo_day_offset is 1", skip1.data.demo_day_offset === 1, skip1.data);
-  const l2 = await call("GET", "/api/lesson");
-  check("next lesson returned", l2.status === 200 && l2.data.lesson, l2.data);
-  check(`why line names "${missed}"`, l2.data.order.why.includes(`“${missed}”`), l2.data.order.why);
+  step("5. Skip to tomorrow: the next lesson changes");
+  check("demo_day_offset is 1", (await call("POST", "/api/demo/skip-day")).data.demo_day_offset === 1);
+  const l2 = (await call("GET", "/api/lesson")).data;
+  check(`why line names "${missed}"`, (l2.order?.why ?? "").includes(`“${missed}”`), l2.order?.why);
   check(
-    "missed concept is in review_concepts and the lesson has one review question per concept",
-    l2.data.order.review_concepts.some((c) => c.concept === missed) &&
-      l2.data.lesson.review_quiz.length === l2.data.order.review_concepts.length,
-    { review_concepts: l2.data.order.review_concepts, review_quiz: l2.data.lesson.review_quiz.length },
+    "the missed concept is a review question",
+    l2.order.review_concepts.some((c) => c.concept === missed) && l2.lesson.review_quiz.length === l2.order.review_concepts.length,
+    l2.order.review_concepts,
   );
-  console.log(`      why: ${l2.data.order.why}`);
-  const mail1 = await call("GET", "/api/reminder-preview");
-  check("today's reminder is the planned-day email", mail1.data.today_type === "planned_day", mail1.data.today_type);
+  console.log(`      why: ${l2.order.why}`);
+  check("today's reminder is the planned-day email", (await call("GET", "/api/reminder-preview")).data.today_type === "planned_day");
+  const openBefore = (await call("GET", "/api/lessons")).data.items.find((i) => i.state === "next").unit_id;
+  const r2 = await answerLesson(call, l2, (q) => {
+    const answer = known.get(q.prompt);
+    return answer ? Math.max(0, q.options.indexOf(answer)) : 0;
+  });
+  list = (await call("GET", "/api/lessons")).data.items;
+  const after = list.find((i) => i.unit_id === openBefore);
+  if (r2.graded.data.result.status === "done") {
+    const nextUnit = list.find((i) => i.state === "next");
+    check(`passed: "${openBefore}" is done and "${nextUnit?.unit_id}" unlocked`, after.state === "done" && !!nextUnit && nextUnit.unit_id !== openBefore, list);
+  } else {
+    check(`failed: "${openBefore}" stays open as a review`, after.state === "next" && after.mode === "review", after);
+  }
 
-  step("7. Miss a study day: catch-up and missed-day email");
-  const all2 = [...l2.data.lesson.quiz, ...l2.data.lesson.review_quiz];
-  await call("POST", "/api/answers", { lesson_key: l2.data.lesson_key, answers: Object.fromEntries(all2.map((q) => [q.question_id, 0])) });
-  await call("POST", "/api/demo/skip-day");
-  await call("POST", "/api/demo/skip-day");
-  const l3 = await call("GET", "/api/lesson");
-  check("mode is 'catch_up' at 10 minutes or less", l3.data.order?.mode === "catch_up" && l3.data.order.minutes <= 10, l3.data.order ?? l3.data);
-  console.log(`      why: ${l3.data.order?.why}`);
-  const mail2 = await call("GET", "/api/reminder-preview");
-  check("today's reminder is the missed-day email", mail2.data.today_type === "missed_day", mail2.data.today_type);
+  step("6. Miss a study day: catch-up and missed-day email");
+  await call("POST", "/api/demo/skip-day", { days: 2 });
+  const l3 = (await call("GET", "/api/lesson")).data;
+  check("mode is 'catch_up' at 10 minutes or less", l3.order?.mode === "catch_up" && l3.order.minutes <= 10, l3.order ?? l3);
+  console.log(`      why: ${l3.order?.why}`);
+  const mail = (await call("GET", "/api/reminder-preview")).data;
+  check("today's reminder is the missed-day email", mail.today_type === "missed_day", mail.today_type);
   for (const type of ["planned_day", "missed_day"]) {
-    const e = mail2.data.emails?.[type];
+    const e = mail.emails?.[type];
     check(`${type} email renders with real values`, e && e.subject && e.body && !/\{\w+\}/.test(e.subject + e.body), e);
   }
+  const cal = (await call("GET", "/api/calendar")).data;
+  check("the calendar marks the missed day and today", cal.days?.some((d) => d.status === "missed") && cal.days.some((d) => d.is_today), cal.days?.filter((d) => d.status !== "rest"));
 
-  step("8. Pace line flips after skipped days");
-  let plan = await call("GET", "/api/plan");
-  const before = plan.data.pace;
-  check("starts 'On track'", before.on_track && before.line === "On track", before);
+  step("7. Pace line flips after skipped days");
+  let plan = (await call("GET", "/api/plan")).data;
+  check("starts 'On track'", plan.pace.on_track, plan.pace);
   let skips = 0;
-  while (plan.data.pace.on_track && skips < 40) {
+  while (plan.pace.on_track && skips < 40) {
     await call("POST", "/api/demo/skip-day");
-    plan = await call("GET", "/api/plan");
+    plan = (await call("GET", "/api/plan")).data;
     skips++;
   }
-  check(`flips to "${plan.data.pace.line}" after ${skips} skipped days`, /^Behind by \d+ lessons?$/.test(plan.data.pace.line), plan.data.pace);
+  check(`flips to "${plan.pace.line}" after ${skips} more skipped days`, /^Behind by \d+ lessons?$/.test(plan.pace.line), plan.pace);
 
-  step("9. Guards");
-  const noId = await call("GET", "/api/me", undefined, { "x-learner-id": "not-a-uuid" });
-  check("invalid learner id is rejected", noId.status === 400, noId);
-  const missing = await call("GET", "/api/lesson?key=doesnotexist");
-  check("unknown lesson key is a 404", missing.status === 404, missing);
+  step("8. Health, guards, sign-out");
+  const health = await call("GET", "/api/health");
+  check(`health ok (ai: ${health.data.ai}, sample: ${health.data.sample})`, health.status === 200 && health.data.ok, health.data);
+  check("unknown lesson key is a 404", (await call("GET", "/api/lesson?key=doesnotexist")).status === 404);
+  await call("POST", "/api/identity/sign-out");
+  check("signed out after sign-out", (await call("GET", "/api/me")).status === 401);
+  check("the other window is still signed in", (await other("GET", "/api/me")).status === 200);
 
   console.log(`\n${failures === 0 ? "ALL CHECKS PASSED" : `${failures} CHECK(S) FAILED`}`);
   process.exit(failures === 0 ? 0 : 1);
