@@ -16,7 +16,6 @@ export function LockedState({ message }: { message: string }) {
         className="inline-flex h-12 items-center justify-center gap-2 rounded-control bg-primary px-5 font-semibold text-on-primary hover:bg-primary-hover"
       >
         {lessonCopy.toOpenLesson}
-        <Icon name="arrow-right" />
       </Link>
     </section>
   );

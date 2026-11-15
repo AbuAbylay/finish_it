@@ -5,8 +5,11 @@ import {
   canReread,
   clampMinutes,
   lessonMinutes,
+  learnedOf,
   lessonStates,
   lessonsInSession,
+  levelFor,
+  missionOf,
   currentStreak,
   gradeLesson,
   gradePlacement,
@@ -242,7 +245,7 @@ describe("picker", () => {
     const order = orderOf(pickNext(r, plan, TUE));
     expect(order.mode).toBe("review");
     expect(order.unit.unit_id).toBe("u02");
-    expect(order.why).toBe("Last time you got 0 of 3 on **Unit u02**. Today goes over it again in a different way. It starts with a quick review of “alpha” and “beta”.");
+    expect(order.why).toBe("Last time you got none of the questions right on **Unit u02**. Today goes over it again in a different way. It starts with a quick review of “alpha” and “beta”.");
   });
 
   it("catch_up: a planned study day was missed, last unit, at most 10 minutes", () => {
@@ -589,5 +592,75 @@ describe("locked lessons", () => {
     expect(canReread("locked")).toBe(false);
     expect(canReread("next")).toBe(false);
     expect(canReread(null)).toBe(false);
+  });
+});
+
+describe("the level, the mission and the learning digest sent with an order", () => {
+  it("one lesson at 1.0 is standard, two in a row at 0.8 or above are stretch, a review is support, a catch-up is standard", () => {
+    const one = study(placed(), MON).record;
+    expect(one.sessions.map((s) => s.score)).toEqual([1]);
+    expect(levelFor(one, "new")).toBe("standard");
+    expect(orderOf(pickNext(one, plan, TUE)).level).toBe("standard");
+
+    const two = study(one, TUE).record;
+    expect(levelFor(two, "new")).toBe("stretch");
+    expect(levelFor(two, "review")).toBe("support");
+    expect(levelFor(two, "catch_up")).toBe("standard");
+
+    // 0.67 is under 0.8, so two lessons in a row are not enough on their own.
+    const mixed = study(one, TUE, ["q1"]).record;
+    expect(levelFor(mixed, "new")).toBe("standard");
+
+    // A failed lesson comes back as a review, taught with more support.
+    const failed = study(placed(), MON, ["q1", "q2", "q3"]).record;
+    expect(orderOf(pickNext(failed, plan, TUE))).toMatchObject({ mode: "review", level: "support" });
+  });
+
+  it("a stretch order says why: its reason ends with the faster-and-further line", () => {
+    const two = study(study(placed(), MON).record, TUE).record;
+    const order = orderOf(pickNext(two, plan, WED));
+    expect(order).toMatchObject({ mode: "new", level: "stretch" });
+    expect(order.why.endsWith("so today moves faster and goes further.")).toBe(true);
+    // A standard order does not carry the line.
+    expect(orderOf(pickNext(study(placed(), MON).record, plan, TUE)).why).not.toContain("moves faster");
+  });
+
+  it("missionOf leaves out blocker_note and counts days_to_exam from today", () => {
+    const p = profile({ blocker_note: "Kids and family", deadline: addDays(MON, 10), focus: ["Unit u02"], skip: ["Unit u04"] });
+    const mission = missionOf(p, MON);
+    expect(mission).toEqual({
+      course: "Test course",
+      why: "Get promoted",
+      success: "Pass",
+      focus: ["Unit u02"],
+      out_of_scope: ["Unit u04"],
+      minutes_per_day: 15,
+      days_to_exam: 10,
+      obstacle: "time",
+    });
+    expect(JSON.stringify(mission)).not.toContain("Kids and family");
+    expect(missionOf(p, addDays(MON, 3)).days_to_exam).toBe(7);
+    // The order carries the same mission, counted from the day it is picked.
+    expect(orderOf(pickNext(placed(MON, p), plan, TUE)).mission).toMatchObject({ days_to_exam: 9, obstacle: "time" });
+  });
+
+  it("learnedOf lists passed units as demonstrated, known units as claimed, and missed concepts with their topic", () => {
+    const first = study(placed(), MON).record; // u02 passed with every answer right
+    const second = study(first, TUE, ["q1"]).record; // u03 passed at 2 of 3, "alpha" missed
+    const digest = learnedOf(second, plan);
+    expect(digest.starting_point).toBe("None");
+    expect(digest.claimed).toEqual(["Unit u01"]);
+    expect(digest.demonstrated.map((d) => d.topic)).toEqual(["Unit u02", "Unit u03"]);
+    expect(digest.demonstrated[0].score).toBe(1);
+    expect(digest.demonstrated[1].score).toBeCloseTo(2 / 3, 2);
+    expect(digest.misconceptions).toEqual([{ concept: "alpha", topic: "Unit u03", times_missed: 1 }]);
+    expect(orderOf(pickNext(second, plan, WED)).learned).toEqual(digest);
+  });
+
+  it("an order from a topic plan says its material is AI-written notes; other orders do not", () => {
+    const topicPlan: CoursePlan = { ...plan, source: "topic" };
+    expect(orderOf(pickNext(placed(), topicPlan, MON)).source).toBe("topic");
+    expect(orderOf(pickNext(placed(), plan, MON))).not.toHaveProperty("source");
+    expect(orderOf(pickNext(placed(), { ...plan, source: "course" }, MON))).not.toHaveProperty("source");
   });
 });

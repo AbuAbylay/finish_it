@@ -63,7 +63,7 @@ export const GET = route(async (req) => {
     const row = await loadLesson(key);
     if (!row || row.learner_id !== ctx.learnerId) throw new HttpError(404, "Lesson not found.", "not_found");
     if (!row.result) assertLessonOpen(ctx, row);
-    return json(presentLesson(row.lesson_key, row.order, row.lesson, row.result, row.answers));
+    return json(presentLesson(row.lesson_key, row.order, row.lesson, row.result, row.answers, ctx.plan.source));
   }
 
   const unitId = req.nextUrl.searchParams.get("unit");
@@ -78,7 +78,7 @@ export const GET = route(async (req) => {
         reread: true,
         state,
         unit: { unit_id: unit.unit_id, title: unit.title, objective: unit.objective, excerpt: unit.excerpt },
-        lesson: past ? presentLesson(past.lesson_key, past.order, past.lesson, past.result, past.answers) : null,
+        lesson: past ? presentLesson(past.lesson_key, past.order, past.lesson, past.result, past.answers, ctx.plan.source) : null,
       });
     }
     // state === "next": fall through to the open lesson.
@@ -111,5 +111,5 @@ export const GET = route(async (req) => {
     row = await pending;
   }
   // The cached content is keyed by unit, mode and review concepts; the why line is always today's.
-  return json(presentLesson(row.lesson_key, { ...row.order, why: order.why }, row.lesson, row.result, row.answers));
+  return json(presentLesson(row.lesson_key, { ...row.order, why: order.why }, row.lesson, row.result, row.answers, ctx.plan.source));
 });

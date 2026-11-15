@@ -40,11 +40,12 @@ function expectQuestion(q: Question, excerpt: string, where: string) {
   expect(flat(excerpt).includes(flat(q.source_quote)), `${where}: source_quote is in the excerpt`).toBe(true);
   expect(q.concept.trim().length, `${where}: concept present`).toBeGreaterThan(0);
   // The correct option must not stand out by length: its length against the mean of the other three
-  // must stay within 0.5 to 1.5. Skipped for short options (none of 20 characters or more).
+  // must stay within 0.4 to 2, the range the validator accepts (ai/validate.ts LENGTH_RATIO.loose).
+  // Skipped for short options (none of 20 characters or more).
   if (q.options.some((o) => o.length >= 20)) {
     const others = q.options.filter((_, i) => i !== q.correct_index);
     const ratio = q.options[q.correct_index].length / (others.reduce((n, o) => n + o.length, 0) / others.length);
-    expect(ratio > 0.5 && ratio < 1.5, `${where}: correct option length ratio ${ratio.toFixed(2)} is outside 0.5 to 1.5`).toBe(true);
+    expect(ratio > 0.4 && ratio < 2, `${where}: correct option length ratio ${ratio.toFixed(2)} is outside 0.4 to 2`).toBe(true);
   }
 }
 
@@ -53,11 +54,13 @@ export function expectValidPlan(plan: unknown, materialText: string) {
   expect(parsed.ok, parsed.ok ? "" : parsed.error).toBe(true);
   if (!parsed.ok) return;
   const p = parsed.plan;
-  expect(p.units.length).toBeGreaterThanOrEqual(6);
-  expect(p.units.length).toBeLessThanOrEqual(10);
+  // One unit per 350 words of material: 2 for a page of notes, up to 12.
+  expect(p.units.length).toBeGreaterThanOrEqual(2);
+  expect(p.units.length).toBeLessThanOrEqual(12);
   for (const u of p.units) expect(flat(materialText).includes(flat(u.excerpt)), `${u.unit_id}: excerpt is a verbatim span`).toBe(true);
-  expect(p.placement_test).toHaveLength(5);
-  expect(new Set(p.placement_test.map((q) => q.unit_id)).size, "5 different units").toBe(5);
+  expect(p.placement_test.length).toBeGreaterThanOrEqual(1);
+  expect(p.placement_test.length).toBeLessThanOrEqual(5);
+  expect(new Set(p.placement_test.map((q) => q.unit_id)).size, "each question on a different unit").toBe(p.placement_test.length);
   for (const q of p.placement_test) {
     const unit = p.units.find((u) => u.unit_id === q.unit_id);
     expect(unit, `${q.question_id}: unit exists`).toBeDefined();
@@ -71,7 +74,8 @@ export async function expectValidLesson(lesson: unknown, order: Order) {
   if (!parsed.ok) return;
   const l: Lesson = parsed.lesson;
   expect(l.unit_id).toBe(order.unit.unit_id);
-  expect(l.quiz, "3 quiz questions").toHaveLength(3);
+  expect(l.quiz.length, "3 to 5 quiz questions").toBeGreaterThanOrEqual(3);
+  expect(l.quiz.length, "3 to 5 quiz questions").toBeLessThanOrEqual(5);
   expect(l.review_quiz, "one review question per review concept").toHaveLength(order.review_concepts.length);
   expect(l.key_points.length).toBeLessThanOrEqual(3);
   for (const s of l.sections) {

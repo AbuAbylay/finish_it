@@ -61,34 +61,9 @@ export function IconButton({
   );
 }
 
-type Band = "green" | "sand" | "sky";
-const bandCls: Record<Band, string> = { green: "band-green", sand: "band-sand", sky: "band-sky" };
-
-/** Card. With `band`, a soft illustrated header with an icon circle overlapping the body. */
-export function Card({
-  children,
-  className = "",
-  band,
-  bandIcon = "check",
-}: {
-  children: ReactNode;
-  className?: string;
-  band?: Band;
-  bandIcon?: IconName;
-}) {
-  if (!band) {
-    return <section className={`rounded-card border border-line bg-surface p-5 shadow-card md:p-6 ${className}`}>{children}</section>;
-  }
-  return (
-    <section className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
-      <div className={`relative h-24 md:h-28 ${bandCls[band]}`} aria-hidden>
-        <span className="absolute -bottom-6 left-5 grid size-12 place-items-center rounded-full bg-surface text-ink shadow-card md:left-6">
-          <Icon name={bandIcon} className="size-6" />
-        </span>
-      </div>
-      <div className={`p-5 pt-9 md:p-6 md:pt-10 ${className}`}>{children}</div>
-    </section>
-  );
+/** Card: a 1 px border on the sheet, no shadow. */
+export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <section className={`rounded-card border border-line bg-surface p-5 md:p-6 ${className}`}>{children}</section>;
 }
 
 export function Chip({
@@ -110,13 +85,13 @@ export function Chip({
   const on =
     tone === "skip"
       ? "border-line-strong bg-locked-soft text-locked ring-1 ring-inset ring-line-strong"
-      : "border-primary bg-surface-muted text-ink ring-1 ring-inset ring-primary";
+      : "border-ink bg-surface text-ink ring-1 ring-inset ring-ink";
   return (
     <button
       type="button"
       aria-pressed={selected}
       onClick={onClick}
-      className={`min-h-tap rounded-control border py-2 text-body transition-colors duration-150 ${compact ? "px-1 text-center" : "flex items-center justify-between gap-3 px-4 text-left"} ${selected ? on : "border-line bg-surface text-ink hover:border-line-strong"} ${className}`}
+      className={`min-h-tap rounded-control border py-2 text-body transition-colors duration-150 ${compact ? "px-1 text-center" : "flex items-center justify-between gap-3 px-4 text-left"} ${selected ? on : "border-line-strong bg-surface text-ink hover:border-ink"} ${className}`}
     >
       {compact ? (
         children

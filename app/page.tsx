@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { ExamRun } from "@/components/ExamRun";
 import { Icon } from "@/components/icons";
 import { BandCard } from "@/components/lesson/BandCard";
 import { EmptyState } from "@/components/lesson/EmptyState";
@@ -13,8 +14,8 @@ import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse } from "@/lib/api-types";
 import { api } from "@/lib/client";
 import { copy } from "@/lib/content";
-import { homeCopy as h, paceSentence } from "@/lib/copy/pages";
-import { shortDate } from "@/lib/dates";
+import { homeCopy as h, paceSentence, sourceCopy, todayButton } from "@/lib/copy/pages";
+import { longDate, shortDate } from "@/lib/dates";
 
 const primaryLink =
   "inline-flex h-12 w-full items-center justify-center gap-2 rounded-control bg-primary px-5 font-semibold text-on-primary hover:bg-primary-hover sm:w-auto";
@@ -23,13 +24,10 @@ const secondaryLink =
 
 function SkeletonCard() {
   return (
-    <div className="overflow-hidden rounded-card border border-line bg-surface shadow-card" aria-hidden>
-      <div className="skeleton h-20 rounded-none md:h-24" />
-      <div className="space-y-3 p-5 pt-9 md:p-6">
-        <div className="skeleton h-6 w-1/2" />
-        <div className="skeleton h-4 w-11/12" />
-        <div className="skeleton h-4 w-3/4" />
-      </div>
+    <div className="space-y-3 rounded-card border border-line bg-surface p-5 md:p-6" aria-hidden>
+      <div className="skeleton h-6 w-1/2" />
+      <div className="skeleton h-4 w-11/12" />
+      <div className="skeleton h-4 w-3/4" />
     </div>
   );
 }
@@ -81,12 +79,15 @@ export default function Home() {
 
         {plan && (
           <div className="grid gap-5 md:gap-6 lg:grid-cols-2">
-            <BandCard band="green" icon="lessons" labelledBy="today-title" className="lg:col-span-2" title={`${h.today} · ${shortDate(plan.today)}`}>
+            <section aria-labelledby="today-title" className="space-y-4 lg:col-span-2">
+              <h1 id="today-title" className="text-small font-semibold text-ink-muted">
+                {longDate(plan.today)}
+              </h1>
               {plan.next ? (
                 <>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <ModeBadges mode={plan.next.mode} minutes={plan.next.minutes} />
-                    <p className="text-h1 text-ink">{plan.next.unit_title}</p>
+                    <p className="lesson-title text-ink">{plan.next.unit_title}</p>
                   </div>
                   <WhyLine text={plan.next.why} />
                   {plan.studied_today && (
@@ -96,8 +97,7 @@ export default function Home() {
                     </p>
                   )}
                   <Link href="/lesson" className={plan.studied_today && !oneMore ? secondaryLink : primaryLink}>
-                    {oneMore ? copy.session.startNext(2, plan.session.lessons_in_session) : plan.studied_today ? h.another : h.start}
-                    <Icon name="arrow-right" />
+                    {todayButton(plan)}
                   </Link>
                 </>
               ) : (
@@ -108,15 +108,15 @@ export default function Home() {
                   </p>
                   <Link href="/done" className={primaryLink}>
                     {h.toFinish}
-                    <Icon name="arrow-right" />
                   </Link>
                 </>
               )}
-            </BandCard>
+            </section>
 
-            <BandCard band="sand" icon="plan" labelledBy="course-title" title={h.myCourse}>
+            <BandCard labelledBy="course-title" title={h.myCourse}>
               <div className="space-y-1">
                 <p className="text-h3 text-ink">{plan.course_title}</p>
+                {me?.course?.source === "topic" && <p className="text-small text-ink-muted">{sourceCopy("topic").note}</p>}
                 <p className="text-small text-ink-muted">{h.examOn(shortDate(plan.deadline))}</p>
               </div>
               <div className="space-y-2">
@@ -141,12 +141,13 @@ export default function Home() {
                   </div>
                 </div>
               )}
+              <ExamRun days={plan.exam_run} />
               <Link href="/plan" className={secondaryLink}>
                 {h.seePlan}
               </Link>
             </BandCard>
 
-            <BandCard band="sky" icon="refresh" labelledBy="review-title" title={h.reviewTitle}>
+            <BandCard labelledBy="review-title" title={h.reviewTitle}>
               {plan.reviews.length === 0 ? (
                 <EmptyState icon="check-circle" title={h.reviewEmptyTitle} line={h.reviewEmptyLine} />
               ) : (

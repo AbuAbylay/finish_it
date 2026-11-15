@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
+import { Atkinson_Hyperlegible_Next, Literata } from "next/font/google";
 import { copy } from "@/lib/content";
 import "./globals.css";
+
+// Two voices (docs/design.md §2). The coach: navigation, buttons, reasons, feedback, the plan.
+const coach = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-coach", display: "swap", adjustFontFallback: false });
+// The course: lesson text, the lesson title and every passage quoted from the learner's material.
+const course = Literata({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-course", display: "swap" });
 
 export const metadata: Metadata = {
   title: copy.pageTitle,
@@ -10,12 +16,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f6f5f2",
+  themeColor: "#fafbfd",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${coach.variable} ${course.variable}`}>
       <body className="font-sans antialiased">{children}</body>
     </html>
   );

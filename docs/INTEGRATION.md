@@ -57,17 +57,18 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult;
 - The setup call does not retype excerpts. It names each unit's passage by its first and last words (`start_quote`, `end_quote`) and code cuts the passage out of the material, so every excerpt is a verbatim span by construction. A passage longer than 600 words is cut back on a paragraph or sentence.
 - Code sets `unit_id`, all `question_id` values (`u04-q1`, `u04-r1`, `p01`) and each review question's `concept` (the exact name from the order).
 - A `source_quote` is replaced by the exact words of the excerpt when they can be found there, whatever the model did to case, spacing or quote marks.
-- The lesson length is sent as numbers derived from `order.minutes`: about `(minutes - 4) x 30` words to aim for, `(minutes - 4) x 60` at most, and 2 to 4 sections. `Order` itself carries no extra fields. `order.why` is not sent; code wrote it for the page.
+- The lesson's shape is set by code (`lessonShape` in `ai/validate.ts`) and sent with the order. The minutes set how much practice it has: under 13 minutes it is 3 parts and 3 questions, from 13 minutes 4 and 4, from 18 minutes 5 and 5. The learner's level sets which parts those are: `standard` is idea, worked example, trap, then a harder case and steps to use it; `support` repeats the worked example in a second setting before anything harder; `stretch` goes straight to the harder case. There is no word target and no word limit: a lesson is as long as its unit's passage needs.
+- The order also carries `level` (`lib/rules.ts levelFor`: support for a unit taught again, stretch after two lessons in a row at 0.8 or above), `mission` (the survey in the shape of the teach skill's MISSION.md: why, success, constraints, out of scope) and `learned` (evidence of where the learner stands: topics passed, topics claimed as known, ideas answered wrongly). All three are optional in `Order`; without them the AI layer builds a thinner brief from `learner`. None of the three is sent to the browser. `order.why` is not sent to the model; code wrote it for the page.
 
 **Validator** (`ai/validate.ts`, run on every reply before the app sees it).
 
 | Check | On failure |
 |---|---|
-| Plan: 6 to 10 units, unique ids, each excerpt a word-for-word span of the material | Retry once |
+| Plan: 2 to 12 units, unique ids, each excerpt a word-for-word span of the material. Code sets the number asked for from the length of the text (`planSize`), re-cuts a passage whose marks were miscopied from its neighbours, and leaves out a unit or placement question that cannot be repaired | Retry once, only when fewer than 2 units or no placement question can be used |
 | Plan: 5 placement questions on 5 different units | Retry once |
 | Lesson: 1 to 4 sections; total words within the limit for `minutes` | Retry once |
 | Lesson: a section's `source_quote` is in the unit excerpt | That section is dropped; at least one must remain |
-| Lesson: exactly 3 `quiz` questions; one `review_quiz` question per review concept | Retry once |
+| Lesson: 3 to 5 `quiz` questions; one `review_quiz` question per review concept | Retry once |
 | Question: 4 distinct options, `correct_index` 0 to 3, `source_quote` in its own excerpt | Retry once |
 | Question: the correct option does not stand out by length (0.5 to 1.5 times the mean of the other three; skipped when every option is under 20 characters) | Retry once |
 
@@ -83,12 +84,15 @@ Quotes are compared after NFKC normalisation, in lower case, with one style of q
 
 - **Orders come from code.** `writeLesson` receives an `Order` built by `pickNext` (`lib/rules.ts`).
 - **Session length.** `order.minutes` is the length of one lesson. It comes from today's choice (`POST /api/session { minutes }`, or `GET /api/lesson?minutes=NN`; the first choice of a day stands), else from the survey, kept within 10 to 30. From 25 minutes a session is two lessons of half the time each. A catch-up lesson is 10 minutes.
-- **Own course.** `POST /api/course { source: "upload", text }` takes 1,500 to 60,000 characters and calls `setupCourse`. The survey comes after the upload, so the profile is normally `null` at that point.
-- **Second guard.** The app re-checks every output against the §4 shapes (`lib/contracts.ts`): 4 options, `correct_index` 0 to 3, unique question ids, at least one section, exactly 3 quiz questions. A mismatch is treated like an `AiError`.
+- **Own course.** `POST /api/course { source: "upload", text }` takes 3 to 60,000 characters and calls `setupCourse`. A text of 900 characters or more is taught from as it stands. A shorter one is taken as the name of a subject: one setup call writes a passage of study notes for each of 5 units and the plan comes back with `source: "topic"`. Wherever such a plan's passages are quoted, the page must say the notes were written by AI and are not the learner's course. The survey comes after the upload, so the profile is normally `null` at that point.
+- **Second guard.** The app re-checks every output against the §4 shapes (`lib/contracts.ts`): 4 options, `correct_index` 0 to 3, unique question ids, at least one section, 3 to 5 quiz questions. A mismatch is treated like an `AiError`.
 - **Answers stay hidden.** The browser gets questions without `correct_index`, `explanation` or `source_quote`. Each answer is revealed only after that question is answered, through `POST /api/answers/check`.
 - **Caching.** One lesson per learner, plan, unit, mode, minutes, review concepts and attempt number. A refresh never calls the model again, and an unfinished lesson is resumed whatever session length is chosen later.
 - **Cost caps** over a rolling 24 hours (environment variables, defaults): `LESSON_CAP_PER_LEARNER=25`, `LESSON_CAP_PER_IP=600`, `LESSON_CAP_GLOBAL=1000`. They count lesson, setup and chat calls. A call that returns an `AiError` counts only toward the global cap, so a failing model cannot lock one learner or one network out for the day. Failed calls are instead held to 8 per learner and 60 per network in any ten minutes. The global cap bounds total spend.
 - **Side chat.** Until the lesson is graded, `sideChat` receives the lesson without `quiz` and `review_quiz`.
+- **Where the passages came from.** `POST /api/course`, `GET /api/me` (`course.source`) and the lesson response (`source`) carry the plan's `source`. For `"topic"` the pages use the wording of `sourceCopy("topic")` in `lib/copy/pages.ts`: quotes are labelled "From the AI-written notes", and no label calls the notes the learner's course (`tests/topic-label.test.ts`).
+- **PDF files.** `POST /api/course/pdf` takes the bytes of a PDF (at most 10 MB), reads its text layer with `unpdf`, joins the lines back into paragraphs and answers `{ text }`. The page puts the text in its box, and the plan is built by `POST /api/course` like any pasted text. Under 900 characters of text it answers "This PDF has no text layer. It may be a scan. Paste the text instead." No model is called. `GET /api/course/example` returns `sample/example-food-safety.txt` for the "Try an example text" button.
+- **Lesson length shown.** The "About N minutes" label is an estimate from the lesson itself (`estimateMinutes` in `lib/rules.ts`): its words divided by 180, plus 45 seconds per question.
 - **Time limits.** `/api/lesson` and `/api/course` allow 60 s, `/api/chat` 30 s (`maxDuration`).
 
 ## Environment variables
@@ -127,7 +131,7 @@ With a key in `.env.local`, the same contract test runs against the real calls (
 AI_CONTRACT_LIVE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/ai-contract.test.ts
 ```
 
-The contract test checks the §4 shapes, 6 to 10 units with verbatim excerpts, 5 placement questions on 5 units, 3 quiz questions, one review question per review concept, 4 options, `correct_index` 0 to 3, the option length rule, every `source_quote` inside its excerpt, and that the browser view carries no answer key.
+The contract test checks the §4 shapes, 2 to 12 units with verbatim excerpts, 1 to 5 placement questions on different units, 3 to 5 quiz questions, one review question per review concept, 4 options, `correct_index` 0 to 3, the option length rule, every `source_quote` inside its excerpt, and that the browser view carries no answer key.
 
 To check saved model runs without calling the models, drop JSON files into `tests/fixtures/ai/`:
 

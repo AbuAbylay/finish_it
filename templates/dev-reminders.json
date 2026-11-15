@@ -2,7 +2,7 @@
   "planned_day": {
     "time": {
       "subject": "{minutes} minutes for {course_title} today",
-      "body": "Today's session is ready: {unit_title}.\nIt takes {minutes} minutes, so it fits before dinner or after the kids are asleep.\n\n{lessons_left} lessons left, {days_left} study days to your exam.\n\n{link}"
+      "body": "Today's session is ready: {unit_title}.\nIt takes {minutes} minutes. Pick the slot you can protect today.\n\n{lessons_left} lessons left, {days_left} study days to your exam.\n\n{link}"
     },
     "motivation": {
       "subject": "One small step on {course_title}",

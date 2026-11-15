@@ -14,13 +14,12 @@ export const copy = {
     fillingExample: "Filling in…",
     back: "Back",
     next: "Next",
-    finish: "Start my 5-question check",
+    finish: "Start my short check",
     saving: "Saving your plan…",
     pickOne: "Pick one to continue.",
     q1: {
       question: "What are you studying for?",
       options: [{ label: "PMP exam prep (sample course)", value: "PMP exam prep" }],
-      ownNote: "Built from the course text you added.",
     },
     q2: {
       question: "Why does this certification matter to you?",
@@ -90,9 +89,10 @@ export const copy = {
         { label: "In 2 weeks", days: 14, note: "" },
         { label: "In 4 weeks", days: 28, note: "" },
         { label: "In 8 weeks", days: 56, note: "" },
-        { label: "Not booked yet", days: 28, note: "We'll plan for 4 weeks. You can change it later." },
+        { label: "Not booked yet", days: 28, note: "We plan for 4 weeks." },
       ],
       pickDate: "Pick a date",
+      afterToday: "Pick an exam date after today.",
     },
     q7: {
       question: "Where are you starting from?",
@@ -137,7 +137,11 @@ export const copy = {
     planTitle: (deadline: string) => `Your plan to ${deadline}`,
     known: (known: number, total: number) => ({ before: "You already know ", strong: `${known} of ${total}`, after: " topics. We'll skip those." }),
     knownNone: "We'll start from the first topic.",
-    lessons: (n: number, minutes: number, days: string) => ({ strong: plural(n, "lesson", "lessons"), after: `, ${minutes} minutes each, on ${days}.` }),
+    /** `days` is the list of chosen weekdays, or null when all seven are chosen. */
+    lessons: (n: number, minutes: number, days: string | null) => ({
+      strong: plural(n, "lesson", "lessons"),
+      after: `, ${minutes} minutes each, ${days === null ? "every day" : `on ${days}`}.`,
+    }),
     topics: "Your topics",
     knownPill: "Known",
     todoPill: "To do",
@@ -187,6 +191,8 @@ export const copy = {
     label: "Demo controls",
     line: "Move time forward to see how the plan reacts.",
     today: (date: string) => `Today in the demo: ${date}`,
+    dateLabel: "Demo date",
+    dateLine: (demo: string, real: string) => `the app is showing ${demo}. The real date is ${real}.`,
     skip1: "Skip to tomorrow",
     skip3: "Skip 3 days",
     reset: "Reset demo",
@@ -205,15 +211,12 @@ export const copy = {
     sessions: (n: number) => (n === 1 ? "session done" : "sessions done"),
     calendar: "Calendar",
     start: "Start today's lesson",
-    another: "Do another lesson",
     allLessons: "See all lessons",
     reminders: "Reminders",
-    remindersPreview: "What your reminders look like",
+    remindersPreview: "Preview of a reminder. Email is not switched on in this demo.",
+    remindersTabs: "Which reminder to preview",
     emailTypes: { planned_day: "Study day", missed_day: "Missed day" },
-    emailToday: "Sent today",
-    emailNone: "No email today: you've already studied.",
-    emailNoneRest: "No email today: it's a rest day.",
-    emailNoneFinished: "No email today: you've finished the course.",
+    emailToday: "The one for today",
     to: "To: you",
     subject: "Subject",
     skipping: "Moving to tomorrow…",
@@ -221,6 +224,11 @@ export const copy = {
 
   done: {
     title: "You finished the course.",
+    // Every topic was skipped in the survey or answered right in the short check: nothing was studied.
+    nothingTitle: "Every topic is marked as known.",
+    nothingLine: "You marked every topic as known, so there is nothing to study. Choose topics again to get a plan.",
+    chooseAgain: "Choose topics again",
+    choosing: "Opening the questions…",
     line: (units: number, sessions: number, daysBefore: number) => {
       const head = `${plural(units, "topic", "topics")}, ${plural(sessions, "session", "sessions")}`;
       if (daysBefore > 0) return `${head}, ${plural(daysBefore, "day", "days")} before your exam. Now go book it.`;

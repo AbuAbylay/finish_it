@@ -28,7 +28,7 @@ export function MinutesChooser({
   const picked = session.options.find((o) => o.minutes === minutes) ?? usual;
 
   return (
-    <section aria-labelledby="minutes-title" className="space-y-5 rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+    <section aria-labelledby="minutes-title" className="space-y-5 rounded-card border border-line bg-surface p-5 md:p-6">
       <header className="space-y-1">
         <h1 id="minutes-title" className="text-h1 text-ink">
           {t.title}
@@ -54,7 +54,6 @@ export function MinutesChooser({
       {error && <ErrorCard message={error} retryable={false} />}
       <Button className="h-12 w-full" onClick={() => onStart(minutes)} busy={busy} busyLabel={t.saving}>
         {t.start}
-        <Icon name="arrow-right" />
       </Button>
     </section>
   );

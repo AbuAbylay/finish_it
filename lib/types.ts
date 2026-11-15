@@ -50,14 +50,54 @@ export interface CoursePlan {
   title: string;
   units: Unit[];
   placement_test: PlacementQuestion[];
+  /**
+   * Where the passages come from. "course": cut word for word from the text the learner gave.
+   * "topic": the learner only named a subject, so the passages are study notes written by the model.
+   * Absent means "course". The pages must say which it is wherever a passage is quoted.
+   */
+  source?: "course" | "topic";
 }
 
 export type Mode = "new" | "review" | "catch_up";
+
+/**
+ * How hard a lesson pushes, set by code from the learner's recent results (lib/rules.ts levelFor):
+ * "support" for a unit taught again, "stretch" after two strong lessons in a row, "standard" otherwise.
+ */
+export type Level = "support" | "standard" | "stretch";
 
 export interface ReviewConcept {
   concept: string;
   unit_id: string;
   excerpt: string;
+}
+
+/**
+ * Why this learner studies, in the shape of the teach skill's MISSION.md: the reason, what success
+ * looks like, the constraints, and what is out of scope. Built from the survey.
+ */
+export interface Mission {
+  course: string;
+  why: string;
+  success: string;
+  focus: string[];
+  out_of_scope: string[];
+  minutes_per_day: number;
+  /** Calendar days from today to the exam; null without a valid exam date. */
+  days_to_exam: number | null;
+  obstacle: Blocker;
+}
+
+/**
+ * Where the learner stands, in the spirit of the teach skill's learning records: evidence, not coverage.
+ * `demonstrated` are topics passed in a lesson quiz, `claimed` are topics marked as known in the short
+ * check or skipped in the survey, `misconceptions` are ideas answered wrongly and not yet cleared.
+ */
+export interface LearningDigest {
+  starting_point: string;
+  demonstrated: { topic: string; score: number }[];
+  claimed: string[];
+  misconceptions: { concept: string; topic: string; times_missed: number }[];
 }
 
 /** §4.3, built by code and sent to the lesson call. */
@@ -68,6 +108,17 @@ export interface Order {
   learner: Pick<Profile, "goal" | "focus" | "prior_knowledge">;
   review_concepts: ReviewConcept[];
   why: string;
+  /** Absent in orders written before levels existed. The AI layer then uses "support" for a review and "standard" otherwise. */
+  level?: Level;
+  /** Absent in older orders. The AI layer then builds a thinner mission from `learner`. */
+  mission?: Mission;
+  /** Absent in older orders. */
+  learned?: LearningDigest;
+  /**
+   * Set to "topic" when the unit's passage is study notes written by AI for a subject the learner named
+   * (the plan's `source`). Absent for the learner's own text. The lesson must then never say "your course".
+   */
+  source?: "topic";
 }
 
 /** §4.4 */

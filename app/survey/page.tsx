@@ -7,7 +7,8 @@ import { useGate } from "@/components/useGate";
 import type { MeResponse } from "@/lib/api-types";
 import { api, clearDraft, loadDraft, saveDraft } from "@/lib/client";
 import { copy } from "@/lib/content";
-import { addDays, shortDate } from "@/lib/dates";
+import { sourceCopy } from "@/lib/copy/pages";
+import { addDays, isIsoDate, shortDate } from "@/lib/dates";
 import { WEEKDAYS, type Blocker, type Profile, type Weekday } from "@/lib/types";
 
 const s = copy.survey;
@@ -134,11 +135,15 @@ export default function Survey() {
   const { me, error: gateError, reload } = useGate(["survey", "test"]);
   const [d, setD] = useState<Draft | null>(null);
   const [saving, setSaving] = useState<"finish" | "example" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retryable: boolean } | null>(null);
   const [pickOne, setPickOne] = useState(false);
 
   useEffect(() => {
-    if (me && !d) setD(fitted(loadDraft<Draft>("survey") ?? initialDraft(me), me));
+    if (!me || d) return;
+    const draft = fitted(loadDraft<Draft>("survey") ?? initialDraft(me), me);
+    // /survey?q=4 opens at that question (the finish page's "Choose topics again").
+    const asked = Number(new URLSearchParams(window.location.search).get("q"));
+    setD(asked >= 1 && asked <= TOTAL ? { ...draft, step: asked - 1 } : draft);
   }, [me, d]);
 
   useEffect(() => {
@@ -162,6 +167,7 @@ export default function Survey() {
 
   const set = (patch: Partial<Draft>) => {
     setPickOne(false);
+    setError(null);
     setD({ ...d, ...patch });
   };
   const units = me.course?.units ?? [];
@@ -174,7 +180,13 @@ export default function Survey() {
     const res = await api("/api/profile", { method: "POST", body: { profile: toProfile(draft, me) } });
     if (!res.ok) {
       setSaving(null);
-      return setError(res.error);
+      // The server refused the date (the day changed, or an old draft): go back to that question.
+      if (res.code === "bad_deadline") {
+        setD({ ...draft, step: 5 });
+        return setPickOne(true);
+      }
+      // Sending the same answers again cannot fix an answer the server refused, so only other failures get "Try again".
+      return setError({ message: res.error, retryable: res.status !== 400 });
     }
     clearDraft("survey");
     router.push("/test");
@@ -182,7 +194,9 @@ export default function Survey() {
 
   const step = Math.min(d.step, TOTAL - 1);
   const last = step === TOTAL - 1;
-  const stepValid = step !== 5 || d.deadlineChoice >= 0 || !!d.deadlineDate;
+  const dateOk = d.deadlineChoice >= 0 || (isIsoDate(d.deadlineDate) && d.deadlineDate > me.today);
+  const stepValid = step !== 5 || dateOk;
+  const dateProblem = step === 5 && pickOne && !dateOk ? (d.deadlineDate ? s.q6.afterToday : s.pickOne) : null;
 
   function next() {
     if (!d) return;
@@ -201,7 +215,7 @@ export default function Survey() {
   };
 
   const steps: ReactNode[] = [
-    <Question key="q1" title={s.q1.question} help={isOwn(me) ? s.q1.ownNote : undefined}>
+    <Question key="q1" title={s.q1.question} help={isOwn(me) ? sourceCopy(me.course?.source).note : undefined}>
       <Chip selected onClick={() => undefined}>
         {isOwn(me) && me.course ? me.course.title : s.q1.options[0].label}
       </Chip>
@@ -267,14 +281,11 @@ export default function Survey() {
           <Chip key={o.label} selected={d.deadlineChoice === i} onClick={() => set({ deadlineChoice: i })}>
             <span className="flex flex-wrap items-baseline justify-between gap-x-3">
               <span>{o.label}</span>
-              <span className="text-small text-ink-muted">{shortDate(addDays(me.today, o.days))}</span>
+              <span className="text-small text-ink-muted">{o.note || shortDate(addDays(me.today, o.days))}</span>
             </span>
           </Chip>
         ))}
       </div>
-      {d.deadlineChoice >= 0 && s.q6.options[d.deadlineChoice].note && (
-        <p className="text-small text-ink-muted">{s.q6.options[d.deadlineChoice].note}</p>
-      )}
       <label className="block space-y-2 pt-1">
         <span className="text-small font-semibold text-ink">{s.q6.pickDate}</span>
         <input
@@ -282,9 +293,16 @@ export default function Survey() {
           min={addDays(me.today, 1)}
           value={d.deadlineChoice === -1 ? d.deadlineDate : ""}
           onChange={(e) => set({ deadlineChoice: -1, deadlineDate: e.target.value })}
-          className={`min-h-tap w-full rounded-control border bg-surface px-4 text-body text-ink ${d.deadlineChoice === -1 ? "border-primary ring-1 ring-primary ring-inset" : "border-line-strong"}`}
+          aria-invalid={dateProblem ? true : undefined}
+          aria-describedby={dateProblem ? "exam-date-problem" : undefined}
+          className={`min-h-tap w-full rounded-control border bg-surface px-4 text-body text-ink ${dateProblem ? "border-danger ring-1 ring-danger ring-inset" : d.deadlineChoice === -1 ? "border-primary ring-1 ring-primary ring-inset" : "border-line-strong"}`}
         />
       </label>
+      {dateProblem && (
+        <p id="exam-date-problem" role="alert" className="text-small font-semibold text-danger">
+          {dateProblem}
+        </p>
+      )}
     </Question>,
     <Question key="q7" title={w.q7.question}>
       <OneOf options={w.q7.options} value={d.prior} onChange={(prior) => set({ prior })} />
@@ -342,12 +360,12 @@ export default function Survey() {
 
         {steps[step]}
 
-        {pickOne && (
+        {pickOne && !dateProblem && (
           <p role="alert" className="text-small font-semibold text-danger">
             {s.pickOne}
           </p>
         )}
-        {error && <ErrorCard message={error} onRetry={() => void save(d, "finish")} />}
+        {error && <ErrorCard message={error.message} retryable={error.retryable} onRetry={() => void save(d, "finish")} />}
 
         <div className="sticky bottom-0 -mx-4 flex gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
           {step > 0 && (

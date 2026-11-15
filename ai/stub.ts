@@ -142,11 +142,12 @@ export async function setupCourse(materialText: string, profile: Profile | null)
   return { title: profile?.course_title || "Your course", units, placement_test };
 }
 
-export async function sideChat(lesson: Lesson, excerpt: string, history: ChatTurn[], question: string): Promise<string | AiError> {
+export async function sideChat(lesson: Lesson, excerpt: string, history: ChatTurn[], question: string, source?: "course" | "topic"): Promise<string | AiError> {
   void lesson;
   void history;
   void question;
-  return `The side chat is not connected yet. Here is the part of your course this lesson is built on:\n\n${excerpt.slice(0, 400)}`;
+  const material = source === "topic" ? "these notes" : "your course";
+  return `The side chat is not connected yet. Here is the part of ${material} this lesson is built on:\n\n${excerpt.slice(0, 400)}`;
 }
 
 export function validatePlan(plan: CoursePlan, materialText: string): ValidationResult {

@@ -32,7 +32,7 @@ function Options({ q, chosen, onChoose }: { q: PublicQuestion; chosen: number | 
             type="button"
             aria-pressed={selected}
             onClick={() => onChoose(orig)}
-            className={`flex min-h-tap items-start gap-3 rounded-control border px-4 py-3 text-left text-body transition-colors duration-150 ${selected ? "border-primary bg-surface-muted text-ink ring-1 ring-primary ring-inset" : "border-line bg-surface text-ink hover:border-line-strong"}`}
+            className={`flex min-h-tap items-start gap-3 rounded-control border px-4 py-3 text-left text-body transition-colors duration-150 ${selected ? "border-ink bg-surface text-ink ring-1 ring-ink ring-inset" : "border-line-strong bg-surface text-ink hover:border-ink"}`}
           >
             <span className={`mt-1 grid size-4 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-ink" : "border-line-strong"}`} aria-hidden>
               {selected && <span className="size-2 rounded-full bg-ink" />}
@@ -47,9 +47,8 @@ function Options({ q, chosen, onChoose }: { q: PublicQuestion; chosen: number | 
 
 function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; studyDays: Weekday[]; onStart: () => void }) {
   const known = plan.units.filter((u) => u.status === "known").length;
-  const studyDays = WEEKDAYS.filter((d) => chosen.includes(d))
-    .map((d) => copy.survey.days[d])
-    .join(", ");
+  const picked = WEEKDAYS.filter((d) => chosen.includes(d));
+  const studyDays = picked.length === WEEKDAYS.length ? null : picked.map((d) => copy.survey.days[d]).join(", ");
   const knownLine = t.known(known, plan.units_total);
   const lessonsLine = t.lessons(plan.pace.lessons_left, plan.lesson_minutes, studyDays);
   return (

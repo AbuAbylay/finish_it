@@ -7,12 +7,12 @@ Built in 24 hours for Business Cup 2.0 (Nazarbayev University) by Team 7292.
 ## What you can do in it
 
 1. **Open it.** There is no sign-up. The app gives you an ID that keeps your progress; typing the same ID on another device continues where you stopped.
-2. **Pick a course.** Start with the sample course (PMP exam prep, 9 topics), or paste the text of your own course (1,500 to 60,000 characters, or a `.txt` / `.md` file; PDF is not supported).
-3. **Set up.** Eight questions (goal, minutes a day, study days, exam date and so on) and a 5-question check that marks the topics you already know.
-4. **Study.** Each study day you say how much time you have (10 to 30 minutes) and get a lesson of that length with a 3-question quiz. Every section shows the quote from your course it is built on.
+2. **Pick a course.** Start with the sample course (PMP exam prep, 9 topics), or paste the text of your own course (up to 60,000 characters, or a PDF with a text layer, a `.txt` or a `.md` file; "Try an example text" loads a one-page example). With no text at hand, a few words naming the subject are enough: the app then writes study notes for it and says that they were written by AI.
+3. **Set up.** Eight questions (goal, minutes a day, study days, exam date and so on) and a short check (up to 5 questions) that marks the topics you already know.
+4. **Study.** Each study day you say how much time you have (10 to 30 minutes) and get a lesson sized to it, with 3 to 5 sections and as many quiz questions. Every section shows the quote it is built on, drawn with a yellow marker: "From your course" for your own text, "From the AI-written notes" for notes the app wrote.
 5. **See it adapt.** A question you miss comes back as a review question on a later day. A failed quiz repeats the topic in a different way. A missed study day gives a shorter catch-up lesson. The line above each lesson says why you got that lesson.
-6. **Track the date.** The calendar shows done, missed and planned days and whether you are on track for your exam date, and previews the reminder email for today.
-7. **Demo controls.** In the calendar, "Skip to tomorrow" and "Skip 3 days" move the app's date forward so the adaptation can be seen in a minute. "Reset demo" clears the progress of that ID.
+6. **Track the date.** The calendar shows done, missed and planned days and whether you are on track for your exam date, and shows a preview of a reminder (email is not switched on in this demo). A row of squares on Home and Plan shows the run to your exam: one square per day, crossed off as you study.
+7. **Demo controls.** In the calendar, "Skip to tomorrow" and "Skip 3 days" move the app's date forward so the adaptation can be seen in a minute. "Reset demo" clears the progress of that ID. While the date is moved, every page shows a "Demo date" banner with the real date.
 
 ## How it works
 
@@ -20,7 +20,7 @@ The principle is **code decides, models write**. Two model calls sit on the crit
 
 ```
 SETUP (once per course)
-  Course text ──> setup call ──> COURSE PLAN (6 to 10 units, each with a verbatim excerpt, and a short test)
+  Course text ──> setup call ──> COURSE PLAN (one unit per 350 words of text, 2 to 10, each with a verbatim excerpt, and a short test)
   Survey form ──> profile ─┐
   Short test answers ──> grader (code) ──> LEARNER RECORD
 
@@ -72,7 +72,7 @@ Each rule has a test in `tests/rules.test.ts`.
 
 ## Run it locally
 
-Node 20 or newer.
+Node 22 or newer.
 
 ```bash
 npm install
@@ -85,7 +85,7 @@ Local data goes to `./local.db` (SQLite). Production uses Turso; see `docs/DEPLO
 ## Check it
 
 ```bash
-npm test                              # 167 tests: rules, database, identity, locks, session length, upload, grading, reminders, AI layer
+npm test                              # 195 tests: rules, database, identity, locks, session length, upload, PDF, grading, reminders, AI layer
 npx tsc --noEmit
 npm run build && npm start            # in one terminal
 node scripts/e2e.mjs                  # in another: the whole juror path over HTTP
@@ -112,7 +112,7 @@ AI_CONTRACT_LIVE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run
 | `sample/` | The sample course text, its plan, and the source the plan is built from |
 | `templates/` | Reminder email templates |
 | `tests/`, `scripts/e2e.mjs` | Unit and API tests, and the end-to-end script |
-| `docs/` | `INTEGRATION.md` (AI layer), `DEPLOY.md` (Vercel and Turso), `design.md` (design tokens) |
+| `docs/` | `INTEGRATION.md` (AI layer), `DEPLOY.md` (Vercel and Turso), `design.md` (the look: two voices, one marker, and the tokens) |
 | `reference/python/` | The first version of the AI layer and of the rules, written in Python, kept with its own README, prompts, schemas, sample course, templates, tests and the team's project documents. The app does not import it. Where the two differ, the TypeScript code above is what runs |
 
 ## Credits

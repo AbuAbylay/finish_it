@@ -16,6 +16,7 @@ import { QuestionSequence } from "@/components/lesson/QuestionSequence";
 import { ResultCard } from "@/components/lesson/ResultCard";
 import { SideChat } from "@/components/lesson/SideChat";
 import { SourceQuote } from "@/components/lesson/SourceQuote";
+import { useSourceCopy } from "@/components/CourseSource";
 import { QuestionCard } from "@/components/QuestionCard";
 import { StatusPill } from "@/components/StatusPill";
 import { Button, ErrorCard, Spinner } from "@/components/ui";
@@ -57,9 +58,10 @@ function signature(params: Params): string {
 }
 
 function LessonSkeleton() {
+  const source = useSourceCopy();
   return (
     <>
-      <Spinner label={t.writing} />
+      <Spinner label={source.writing} />
       <div className="space-y-4" aria-hidden>
         <div className="skeleton h-7 w-40" />
         <div className="skeleton h-9 w-3/4" />
@@ -87,8 +89,8 @@ function LessonHeader({ data, sessionLabel }: { data: PresentedLesson; sessionLa
   return (
     <header className="space-y-3">
       {sessionLabel && <p className="text-small font-semibold text-ink-muted">{sessionLabel}</p>}
-      <ModeBadges mode={data.order.mode} minutes={data.order.minutes} />
-      <h1 className="text-h1 text-ink">{data.lesson.title}</h1>
+      <ModeBadges mode={data.order.mode} minutes={data.estimate_minutes} />
+      <h1 className="lesson-title text-ink">{data.lesson.title}</h1>
       <WhyLine text={data.order.why} />
     </header>
   );
@@ -112,6 +114,7 @@ export default function LessonPage() {
 }
 
 function LessonView() {
+  const source = useSourceCopy();
   const router = useRouter();
   const search = useSearchParams();
   const urlKey = search.get("k") ?? search.get("key");
@@ -134,6 +137,7 @@ function LessonView() {
   const shown = useRef<string | null>(null);
   const reviewRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   /** Puts the address bar in step with what the page shows, without loading anything. */
   const setUrl = useCallback((params: Params) => {
@@ -338,7 +342,7 @@ function LessonView() {
             </section>
           </>
         ) : (
-          <SourceQuote quote={data.unit.excerpt} label={t.rereadExcerpt} />
+          <SourceQuote quote={data.unit.excerpt} label={source.rereadExcerpt} marked={false} />
         )}
         <Button variant="secondary" onClick={() => router.push("/lessons")}>
           <Icon name="chevron-left" />
@@ -369,7 +373,7 @@ function LessonView() {
       <LessonHeader data={data} sessionLabel={sessionLabel} />
 
       {review.length > 0 && (
-        <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-warn-line bg-surface p-5 shadow-card md:p-6">
+        <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-line bg-surface p-5 md:p-6">
           <h2 id="review-title" className="flex items-center gap-2 text-h2 text-ink">
             <Icon name="refresh" className="size-5 text-warn" />
             {reviewDone || result ? t.reviewSummary(reviewRight, review.length) : t.reviewTitle(review.length)}
@@ -389,8 +393,11 @@ function LessonView() {
                 seed={seed}
                 checked={checked}
                 onCheck={check}
-                onDone={() => setReviewDone(true)}
-                doneLabel={t.next}
+                onDone={() => {
+                  setReviewDone(true);
+                  setTimeout(() => bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                }}
+                doneLabel={t.toLesson}
                 holdLast={false}
               />
             )
@@ -398,7 +405,9 @@ function LessonView() {
         </section>
       )}
 
-      <LessonBody lesson={data.lesson} />
+      <div ref={bodyRef} className="scroll-mt-20">
+        <LessonBody lesson={data.lesson} />
+      </div>
 
       {!started && !result && (
         <Button className="h-12 w-full" onClick={() => setStarted(true)}>
@@ -407,7 +416,7 @@ function LessonView() {
       )}
 
       {(started || result) && (
-        <section aria-labelledby="quiz-title" className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+        <section aria-labelledby="quiz-title" className="space-y-4 rounded-card border border-line bg-surface p-5 md:p-6">
           <h2 id="quiz-title" className="text-h2 text-ink">
             {t.quizTitle(data.lesson.quiz.length)}
           </h2>

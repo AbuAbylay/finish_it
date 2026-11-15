@@ -41,7 +41,7 @@ export function DemoControls({ today, onReset }: { today: string; onReset: () =>
   return (
     <section className="space-y-3 rounded-control border border-dashed border-warn-line bg-warn-soft p-4" aria-label={d.label}>
       <div className="space-y-1">
-        <p className="text-caption uppercase text-warn">{d.label}</p>
+        <p className="text-caption text-warn">{d.label}</p>
         <p className="text-small text-ink">{d.line}</p>
       </div>
       <p className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-small font-semibold text-warn" aria-live="polite">

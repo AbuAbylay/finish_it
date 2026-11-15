@@ -1,17 +1,28 @@
 // The checks every model output must pass before the app sees it (SAGYNDYK-AI.md "Validator").
 // Plain code: no model and no network, so every rule here is unit-tested directly.
-import type { CoursePlan, Lesson, Order, Question, ValidationResult } from "@/lib/types";
+import type { CoursePlan, Lesson, Level, Order, Question, ValidationResult } from "@/lib/types";
 
-export const MIN_UNITS = 6;
-export const MAX_UNITS = 10;
-export const PLACEMENT_QUESTIONS = 5;
-export const QUIZ_QUESTIONS = 3;
-export const MAX_SECTIONS = 4;
+/** A text of one page still gives two lessons; the longest text gives twelve. */
+export const MIN_UNITS = 2;
+export const MAX_UNITS = 12;
+export const MAX_PLACEMENT_QUESTIONS = 5;
+export const MIN_QUIZ_QUESTIONS = 3;
+export const MAX_QUIZ_QUESTIONS = 5;
+export const MAX_SECTIONS = 6;
 export const MAX_KEY_POINTS = 3;
 /** An excerpt is "at most about 600 words" (PROJECT §4.2). Longer spans are cut back to this. */
 export const MAX_EXCERPT_WORDS = 600;
 /** The validator allows a little slack above the cut, for a final sentence that runs over. */
 const EXCERPT_WORD_LIMIT = 700;
+/** A passage shorter than this cannot carry a lesson, so such a unit is left out of the plan. */
+export const MIN_EXCERPT_WORDS = 25;
+/** One lesson's worth of source text. The number of units follows from the length of the material. */
+export const WORDS_PER_UNIT = 350;
+/**
+ * How far the correct option's length may be from the mean of the other three. `strict` is the
+ * quality bar a question is written to; `loose` is where a reply is turned down and written again.
+ */
+export const LENGTH_RATIO = { strict: 1.5, loose: 2 };
 
 // --- text matching ----------------------------------------------------------
 
@@ -121,25 +132,129 @@ export function cutExcerpt(
   return { ok: true, excerpt, end: end.end };
 }
 
-// --- lesson length ----------------------------------------------------------
+// --- sizes decided by code -----------------------------------------------------
 
 /**
- * Reading time is the session minus about 4 minutes for the quiz (PROJECT §4.4).
- * The lesson call aims for `target` words and may never pass `max` = (minutes - 4) x 60.
+ * How many units and placement questions a text of this length gets: one unit per WORDS_PER_UNIT
+ * words. Code decides, so one page of notes is not cut into ten crumbs and the same text gets
+ * the same number of lessons every time.
  */
-export function wordBudget(minutes: number): { target: number; max: number; sections: number } {
-  const reading = Math.max(minutes, 8) - 4;
-  return { target: reading * 30, max: reading * 60, sections: minutes <= 10 ? 2 : minutes <= 20 ? 3 : 4 };
+export function planSize(wordsInMaterial: number): { units: number; placement_questions: number } {
+  const units = Math.max(MIN_UNITS, Math.min(10, Math.round(wordsInMaterial / WORDS_PER_UNIT)));
+  return { units, placement_questions: Math.min(MAX_PLACEMENT_QUESTIONS, units) };
+}
+
+export type LessonPart = "idea" | "worked_example" | "second_example" | "trap" | "harder_case" | "use_it";
+
+/**
+ * The parts of a lesson, by level and by length (about 10, 15 and 20 minutes).
+ * Support repeats the worked example in a second setting before anything harder. Stretch goes
+ * straight to the harder case. Standard sits between them.
+ */
+const PARTS: Record<Level, [LessonPart[], LessonPart[], LessonPart[]]> = {
+  support: [
+    ["idea", "worked_example", "second_example"],
+    ["idea", "worked_example", "second_example", "trap"],
+    ["idea", "worked_example", "second_example", "trap", "use_it"],
+  ],
+  standard: [
+    ["idea", "worked_example", "trap"],
+    ["idea", "worked_example", "trap", "harder_case"],
+    ["idea", "worked_example", "trap", "harder_case", "use_it"],
+  ],
+  stretch: [
+    ["idea", "harder_case", "trap"],
+    ["idea", "harder_case", "trap", "use_it"],
+    ["idea", "worked_example", "harder_case", "trap", "use_it"],
+  ],
+};
+/**
+ * The shape of one lesson: which parts it has and how many questions. Two things set it, both in code:
+ * - the minutes: about 10 is three parts and 3 questions, about 15 is four and 4, about 20 is five
+ *   and 5, so more time buys more practice (25 minutes or more is two lessons, lib/rules.ts);
+ * - the learner's level: which parts those are.
+ * There is no word target and no word limit. How long a lesson runs follows from how much the
+ * unit's passage holds: the model is told to teach what the skill needs and nothing else.
+ */
+export function lessonShape(minutes: number, level: Level = "standard"): { sections: number; parts: LessonPart[]; quiz: number } {
+  const size = minutes >= 18 ? 2 : minutes >= 13 ? 1 : 0;
+  const parts = PARTS[level][size];
+  return { sections: parts.length, parts, quiz: size + 3 };
+}
+
+/** The level a lesson is written at: the one the app chose from the learner's results, or support for a unit taught again. */
+export function levelOf(order: Order): Level {
+  return order.level ?? (order.mode === "review" ? "support" : "standard");
+}
+
+/** The shape of the lesson for one order: its minutes and its level. */
+export function shapeFor(order: Order): ReturnType<typeof lessonShape> {
+  return lessonShape(order.minutes, levelOf(order));
+}
+
+// --- cutting a whole plan's passages -------------------------------------------
+
+/** Where a passage starts or ends: the whole quote, or failing that its first (or last) six, then four, words. */
+function anchor(material: string, quote: string, from: number, side: "start" | "end"): { start: number; end: number } | null {
+  const whole = locate(material, quote, from);
+  if (whole) return whole;
+  const words = quote.trim().split(/\s+/).filter(Boolean);
+  for (const n of [6, 4]) {
+    if (words.length <= n) continue;
+    const hit = locate(material, (side === "start" ? words.slice(0, n) : words.slice(-n)).join(" "), from);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+/**
+ * Cuts every unit's passage out of the material, one excerpt per pair of marks, in the same order.
+ * A model sometimes miscopies a mark. Where a start cannot be found, the passage begins where the
+ * one before it ends; where an end cannot be found, it runs to the start of the next passage. An
+ * entry is null only when no passage of MIN_EXCERPT_WORDS words can be cut for it, so one bad mark
+ * costs at most one unit and never the whole plan.
+ */
+export function cutPassages(material: string, marks: { start_quote: string; end_quote: string }[]): (string | null)[] {
+  const spans = marks.map(() => ({ start: -1, end: -1 }));
+  // Passages follow the order of the material, so each start is looked for after the one before it first.
+  let from = 0;
+  marks.forEach((mark, i) => {
+    const hit = anchor(material, mark.start_quote, from, "start") ?? anchor(material, mark.start_quote, 0, "start");
+    if (!hit) return;
+    spans[i].start = hit.start;
+    from = Math.max(from, hit.start + 1);
+  });
+  const nextStart = (position: number) =>
+    spans
+      .map((s) => s.start)
+      .filter((s) => s > position)
+      .sort((a, b) => a - b)[0] ?? material.length;
+  marks.forEach((mark, i) => {
+    const span = spans[i];
+    if (span.start < 0) {
+      if (i === 0 || spans[i - 1].end < 0) return;
+      span.start = spans[i - 1].end;
+    }
+    const hit = anchor(material, mark.end_quote, span.start, "end");
+    span.end = hit && hit.end > span.start ? hit.end : nextStart(span.start);
+  });
+  return spans.map((span) => {
+    if (span.start < 0 || span.end <= span.start) return null;
+    let excerpt = material.slice(span.start, span.end).trim();
+    if (countWords(excerpt) < MIN_EXCERPT_WORDS) excerpt = material.slice(span.start, nextStart(span.start)).trim();
+    return countWords(excerpt) < MIN_EXCERPT_WORDS ? null : trimToWords(excerpt, MAX_EXCERPT_WORDS);
+  });
 }
 
 // --- questions --------------------------------------------------------------
 
 /**
  * Four distinct options, one correct index, a quote found in the source, and a correct option that
- * does not stand out by length: its length against the mean of the other three stays between
- * 0.5 and 1.5 (not applied when every option is shorter than 20 characters).
+ * does not stand out by length: its length against the mean of the other three stays under
+ * `lengthLimit` (1.5 unless the caller is more lenient) and above 1 / (lengthLimit + 0.5). The length
+ * rule is not applied when every option is shorter than 20 characters.
  */
-export function questionErrors(q: Question, source: string, where: string): string[] {
+export function questionErrors(q: Question, source: string, where: string, lengthLimit = LENGTH_RATIO.strict): string[] {
   const errors: string[] = [];
   const options = Array.isArray(q.options) ? q.options : [];
   if (options.length !== 4) errors.push(`${where}: needs exactly 4 options, has ${options.length}`);
@@ -158,7 +273,7 @@ export function questionErrors(q: Question, source: string, where: string): stri
   if (indexOk && options.length === 4 && options.some((o) => String(o).length >= 20)) {
     const others = options.filter((_, i) => i !== q.correct_index);
     const ratio = options[q.correct_index].length / (others.reduce((n, o) => n + o.length, 0) / others.length);
-    if (!(ratio > 0.5 && ratio < 1.5)) {
+    if (!(ratio > 1 / (lengthLimit + 0.5) && ratio < lengthLimit)) {
       errors.push(`${where}: the correct option stands out by length (${ratio.toFixed(2)} times the others); make all four the same length and form`);
     }
   }
@@ -183,12 +298,14 @@ export function validatePlan(plan: CoursePlan, materialText: string): Validation
     else if (!material.includes(flat(u.excerpt))) errors.push(`${u.unit_id}: excerpt is not a word-for-word span of the material`);
     else if (countWords(u.excerpt) > EXCERPT_WORD_LIMIT) errors.push(`${u.unit_id}: excerpt is longer than ${MAX_EXCERPT_WORDS} words`);
   }
-  if (placement.length !== PLACEMENT_QUESTIONS) errors.push(`the placement test needs ${PLACEMENT_QUESTIONS} questions, has ${placement.length}`);
+  if (placement.length < 1 || placement.length > MAX_PLACEMENT_QUESTIONS) {
+    errors.push(`the placement test needs 1 to ${MAX_PLACEMENT_QUESTIONS} questions, has ${placement.length}`);
+  }
   if (new Set(placement.map((q) => q.unit_id)).size !== placement.length) errors.push("each placement question must be on a different unit");
   for (const q of placement) {
     const unit = units.find((u) => u.unit_id === q.unit_id);
     if (!unit) errors.push(`${q.question_id}: unit ${q.unit_id} is not in the plan`);
-    else errors.push(...questionErrors(q, unit.excerpt ?? "", q.question_id));
+    else errors.push(...questionErrors(q, unit.excerpt ?? "", q.question_id, LENGTH_RATIO.loose));
   }
   return { ok: errors.length === 0, errors };
 }
@@ -212,13 +329,12 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult {
     if (!s.source_quote?.trim()) errors.push(`${where}: source_quote is empty`);
     else if (!flat(excerpt).includes(flat(s.source_quote))) errors.push(`${where}: source_quote is not word for word in the excerpt`);
   });
-  const words = sections.reduce((n, s) => n + countWords(s.body_md ?? ""), 0);
-  const { max } = wordBudget(order.minutes);
-  if (words > max) errors.push(`the sections have ${words} words; the limit for ${order.minutes} minutes is ${max}`);
   if (keyPoints.length > MAX_KEY_POINTS) errors.push(`key_points has ${keyPoints.length} lines; at most ${MAX_KEY_POINTS}`);
 
-  if (quiz.length !== QUIZ_QUESTIONS) errors.push(`quiz needs exactly ${QUIZ_QUESTIONS} questions, has ${quiz.length}`);
-  quiz.forEach((q, i) => errors.push(...questionErrors(q, excerpt, `quiz[${i}]`)));
+  if (quiz.length < MIN_QUIZ_QUESTIONS || quiz.length > MAX_QUIZ_QUESTIONS) {
+    errors.push(`quiz needs ${MIN_QUIZ_QUESTIONS} to ${MAX_QUIZ_QUESTIONS} questions, has ${quiz.length}`);
+  }
+  quiz.forEach((q, i) => errors.push(...questionErrors(q, excerpt, `quiz[${i}]`, LENGTH_RATIO.loose)));
 
   const concepts = order.review_concepts;
   if (review.length !== concepts.length) {
@@ -227,7 +343,7 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult {
     review.forEach((q, i) => {
       const where = `review_quiz[${i}]`;
       if (flat(q.concept ?? "") !== flat(concepts[i].concept)) errors.push(`${where}: concept must be "${concepts[i].concept}", unchanged`);
-      errors.push(...questionErrors(q, concepts[i].excerpt, where));
+      errors.push(...questionErrors(q, concepts[i].excerpt, where, LENGTH_RATIO.loose));
     });
   }
   const questionIds = [...quiz, ...review].map((q) => q.question_id);

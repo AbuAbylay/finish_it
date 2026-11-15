@@ -15,8 +15,8 @@ export function LessonBody({ lesson }: { lesson: PresentedLesson["lesson"] }) {
         </section>
       ))}
       {lesson.key_points.length > 0 && (
-        <section className="rounded-card bg-surface-muted p-5" aria-labelledby="key-points">
-          <h2 id="key-points" className="text-caption uppercase text-ink-muted">
+        <section className="border-y border-line py-5" aria-labelledby="key-points">
+          <h2 id="key-points" className="text-h3 text-ink">
             {t.keyPoints}
           </h2>
           <ul className="mt-3 space-y-2">

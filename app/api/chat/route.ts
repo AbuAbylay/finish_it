@@ -27,7 +27,7 @@ export const POST = route(async (req) => {
   // Until the lesson is graded, the model never sees the questions or their answer key.
   const lesson = row.result ? row.lesson : { ...row.lesson, quiz: [], review_quiz: [] };
   // A long conversation is welcome; only its last turns go to the model.
-  const answer = await sideChat(lesson, row.order.unit.excerpt, body.data.history.slice(-RECENT_TURNS), body.data.question);
+  const answer = await sideChat(lesson, row.order.unit.excerpt, body.data.history.slice(-RECENT_TURNS), body.data.question, row.order.source ?? ctx.plan?.source);
   await recordGeneration(ctx.learnerId, clientIp(req), "chat", !isAiError(answer));
   if (isAiError(answer)) {
     console.error("sideChat failed:", answer.error, answer.detail ?? "");

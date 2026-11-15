@@ -6,7 +6,7 @@ const STYLE: Record<LessonState, { cls: string; icon: IconName; label: string }>
   done: { cls: "bg-accent-soft text-accent-strong", icon: "check", label: "Done" },
   known: { cls: "bg-info-soft text-info", icon: "check-circle", label: "Known" },
   needs_review: { cls: "bg-warn-soft text-warn", icon: "refresh", label: "Needs review" },
-  next: { cls: "bg-primary text-on-primary", icon: "arrow-right", label: "Up next" },
+  next: { cls: "bg-primary text-on-primary", icon: "lessons", label: "Up next" },
   locked: { cls: "bg-locked-soft text-locked", icon: "lock", label: "Locked" },
 };
 

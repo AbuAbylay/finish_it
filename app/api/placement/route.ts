@@ -1,6 +1,6 @@
 import { answersSchema, issues } from "@/lib/contracts";
 import { saveLearner } from "@/lib/db";
-import { gradePlacement, placementDone } from "@/lib/rules";
+import { gradePlacement, placementDone, startCourse } from "@/lib/rules";
 import { HttpError, context, json, publicQuestion, readJson, requireSetUp, route } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
@@ -29,4 +29,15 @@ export const POST = route(async (req) => {
     known: ctx.plan.units.filter((u) => record.units[u.unit_id]?.status === "known").map((u) => u.title),
     lessons_left: ctx.plan.units.filter((u) => record.units[u.unit_id]?.status !== "known").length,
   });
+});
+
+/**
+ * Takes the short check back so the survey's topics can be chosen again. Only for a learner who has not
+ * studied a lesson yet: every unit returns to `todo`, the survey answers stay.
+ */
+export const DELETE = route(async (req) => {
+  const ctx = requireSetUp(await context(req));
+  if (ctx.record.sessions.length > 0) throw new HttpError(409, "You have already studied lessons on this plan.", "has_sessions");
+  await saveLearner(startCourse(ctx.record, ctx.record.course_plan_id ?? "", ctx.plan));
+  return json({ stage: "test" });
 });

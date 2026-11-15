@@ -1,12 +1,13 @@
 // Read models for the plan page and the reminder preview, built from the record with the §5 rules.
 import "server-only";
 import { copy } from "./content";
-import { addDays, weekdayOf } from "./dates";
+import { addDays, diffDays, isIsoDate, weekdayOf } from "./dates";
 import { renderReminder, type Email } from "./reminders";
 import {
   CATCH_UP_MAX_MINUTES,
   calendar,
   currentStreak,
+  firstActiveDay,
   lessonMinutes,
   pace,
   pickNext,
@@ -24,6 +25,15 @@ function paceText(p: Pace): string {
   if (p.on_track && p.spare_days > 0) return copy.pace.onTrackSpare(p.lessons_left, p.days_left, p.spare_days);
   if (p.on_track) return copy.pace.onTrackExact;
   return copy.pace.behind(p.behind_by, p.lessons_left, p.days_left);
+}
+
+const EXAM_RUN_MAX_DAYS = 120;
+
+function examRun(record: LearnerRecord & { profile: Profile }, today: string) {
+  const start = firstActiveDay(record) ?? today;
+  const end = record.profile.deadline;
+  if (!isIsoDate(end) || end < today || diffDays(start, end) > EXAM_RUN_MAX_DAYS) return [];
+  return calendar(record, today, start, end);
 }
 
 type SetUp = { record: LearnerRecord & { profile: Profile }; plan: CoursePlan; today: string; minutesToday?: number | null };
@@ -66,6 +76,8 @@ export function planView({ record, plan, today, minutesToday = null }: SetUp) {
       score: record.units[u.unit_id]?.score ?? null,
     })),
     calendar: calendar(record, today, from, addDays(from, 34)),
+    /** One entry per day from the learner's first day to exam day, for the row of squares. Empty when the exam has passed or is over 120 days away. */
+    exam_run: examRun(record, today),
     next:
       next.kind === "finished"
         ? null

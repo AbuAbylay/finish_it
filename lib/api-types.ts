@@ -44,7 +44,8 @@ export interface MeResponse {
   /** "real" when sample/course-plan.json is the learner's course (show its credit line), "dev" for the dev fixture, null for their own course. */
   sample: "real" | "dev" | null;
   profile: Profile | null;
-  course: { title: string; units: { unit_id: string; title: string }[] } | null;
+  /** `source` is "topic" when the plan's passages are study notes written by AI for a subject the learner named. */
+  course: { title: string; source: "course" | "topic" | null; units: { unit_id: string; title: string }[] } | null;
 }
 
 /** POST /api/identity/generate */

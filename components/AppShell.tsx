@@ -6,6 +6,8 @@
 // The calendar popover calls emitDayChange() after Skip/Reset; pages reload via useGate/onDayChange.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import type { MeResponse } from "@/lib/api-types";
+import { CourseSourceProvider } from "./CourseSource";
+import { DemoDateBanner } from "./shell/DemoDateBanner";
 import { DevBanner } from "./shell/DevBanner";
 import { Drawer, SidebarContent, sidebarWidth, type SidebarPref } from "./shell/Sidebar";
 import { TopBar } from "./shell/TopBar";
@@ -58,8 +60,11 @@ export function AppShell({ me, title, variant = "app", children }: AppShellProps
       <div className={app ? pad : ""}>
         <TopBar me={me} title={title} variant={variant} onMenu={() => setDrawer(true)} menuRef={menuRef} />
         {me?.ai === "stub" && <DevBanner />}
+        {me && me.demo_day_offset !== 0 && <DemoDateBanner today={me.today} offset={me.demo_day_offset} />}
         <main className="px-4 pt-6 pb-24 md:px-8">
-          <div className="mx-auto w-full max-w-content">{children}</div>
+          <div className="mx-auto w-full max-w-content">
+            <CourseSourceProvider value={me?.course?.source ?? null}>{children}</CourseSourceProvider>
+          </div>
         </main>
       </div>
       {app && <Drawer open={drawer} onClose={closeDrawer} loginId={me?.login_id ?? null} returnFocus={menuRef} />}

@@ -45,7 +45,7 @@ export function QuestionCard({
   return (
     <fieldset className="space-y-3">
       <legend className="text-h3 text-ink">
-        {label && <span className="mb-2 block text-caption uppercase text-ink-muted">{label}</span>}
+        {label && <span className="mb-2 block text-caption text-ink-muted">{label}</span>}
         {number !== undefined && <span className="mr-2 text-ink-faint">{number}.</span>}
         {q.prompt}
       </legend>
@@ -54,11 +54,12 @@ export function QuestionCard({
           const selected = shownChoice === orig;
           const isAnswer = !!fb && fb.correct_index === orig;
           const wrongPick = !!fb && selected && !fb.correct;
-          let cls = "border-line bg-surface text-ink hover:border-line-strong";
-          if (!fb && selected) cls = "border-primary bg-surface-muted text-ink";
-          if (fb) cls = "border-line bg-surface text-ink-faint";
-          if (isAnswer) cls = "border-accent bg-accent-soft text-ink";
-          if (wrongPick) cls = "border-danger bg-danger-soft text-ink";
+          // A 2 px border is drawn as a 1 px border plus a 1 px inset ring, so rows do not move when their state changes.
+          let cls = "border-line-strong text-ink hover:border-ink";
+          if (!fb && selected) cls = "border-ink ring-1 ring-inset ring-ink text-ink";
+          if (fb) cls = "border-line text-ink-muted";
+          if (isAnswer) cls = "border-accent ring-1 ring-inset ring-accent text-ink";
+          if (wrongPick) cls = "border-danger ring-1 ring-inset ring-danger text-ink";
           return (
             <button
               key={orig}
@@ -66,7 +67,7 @@ export function QuestionCard({
               disabled={locked}
               aria-pressed={selected}
               onClick={() => onChoose?.(orig)}
-              className={`flex min-h-tap items-start gap-3 rounded-control border-2 px-4 py-3 text-left text-body transition-colors disabled:cursor-default ${cls}`}
+              className={`flex min-h-tap w-full flex-wrap items-start gap-x-3 gap-y-1 rounded-control border bg-surface px-4 py-3 text-left text-body transition-colors disabled:cursor-default ${cls}`}
             >
               <span
                 className={`mt-1 grid size-4 shrink-0 place-items-center rounded-full border-2 ${selected ? "border-primary bg-primary" : "border-line-strong"}`}
@@ -74,17 +75,17 @@ export function QuestionCard({
               >
                 {selected && <span className="size-1.5 rounded-full bg-surface" />}
               </span>
-              <span className="flex-1">{q.options[orig]}</span>
+              <span className="min-w-0 flex-1 basis-40">{q.options[orig]}</span>
               {isAnswer && (
                 <span className="inline-flex shrink-0 items-center gap-1 text-small font-semibold text-accent-strong">
                   <Icon name="check" className="size-4" />
-                  <span className="sr-only">Correct answer</span>
+                  Correct answer
                 </span>
               )}
               {wrongPick && (
                 <span className="inline-flex shrink-0 items-center gap-1 text-small font-semibold text-danger">
                   <Icon name="close" className="size-4" />
-                  <span className="sr-only">Your answer</span>
+                  Your answer
                 </span>
               )}
             </button>
@@ -96,14 +97,14 @@ export function QuestionCard({
             disabled={locked}
             aria-pressed={chosen === -1}
             onClick={() => onChoose?.(-1)}
-            className={`min-h-tap rounded-control border-2 border-dashed px-4 py-3 text-left text-body ${chosen === -1 ? "border-primary bg-surface-muted text-ink" : "border-line-strong text-ink-muted"}`}
+            className={`min-h-tap rounded-control border border-dashed px-4 py-3 text-left text-body ${chosen === -1 ? "border-ink ring-1 ring-inset ring-ink text-ink" : "border-line-strong text-ink-muted"}`}
           >
             {dontKnowLabel}
           </button>
         )}
       </div>
       {fb && (
-        <div className="space-y-3 rounded-control bg-surface-muted p-4" aria-live="polite">
+        <div className="space-y-3 pt-1" aria-live="polite">
           {fb.correct ? (
             <p className="flex items-center gap-2 text-body font-semibold text-accent-strong">
               <Icon name="check-circle" />

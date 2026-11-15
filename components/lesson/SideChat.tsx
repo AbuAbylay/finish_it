@@ -5,6 +5,7 @@ import { Icon } from "@/components/icons";
 import { Button } from "@/components/ui";
 import type { ChatTurn } from "@/lib/types";
 import { api } from "@/lib/client";
+import { useSourceCopy } from "@/components/CourseSource";
 import { lessonCopy as t } from "@/lib/copy/pages";
 import { Markdown } from "@/components/Markdown";
 
@@ -12,6 +13,7 @@ import { Markdown } from "@/components/Markdown";
 const RECENT_TURNS = 12;
 
 export function SideChat({ lessonKey }: { lessonKey: string }) {
+  const source = useSourceCopy();
   const [open, setOpen] = useState(false);
   const [history, setHistory] = useState<ChatTurn[]>([]);
   const [question, setQuestion] = useState("");
@@ -43,11 +45,11 @@ export function SideChat({ lessonKey }: { lessonKey: string }) {
   }
 
   return (
-    <section aria-labelledby="chat-title" className="space-y-3 rounded-card border border-line bg-surface p-5 shadow-card">
+    <section aria-labelledby="chat-title" className="space-y-3 rounded-card border border-line bg-surface p-5">
       <h2 id="chat-title" className="text-h3 text-ink">
         {t.chatInviteAction}
       </h2>
-      {history.length === 0 && <p className="text-small text-ink-muted">{t.chatEmpty}</p>}
+      {history.length === 0 && <p className="text-small text-ink-muted">{source.chatEmpty}</p>}
       <ul className="space-y-2" aria-live="polite">
         {history.map((m, i) => (
           <li key={i} className={`rounded-control p-3 text-body ${m.role === "user" ? "bg-surface-muted text-ink" : "border border-line text-ink"}`}>

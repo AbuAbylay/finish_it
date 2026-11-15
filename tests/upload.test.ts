@@ -99,7 +99,8 @@ describe("POST /api/course with the learner's own text", () => {
     const client = await signedIn("10.1.0.3");
     const logged = vi.spyOn(r.db, "logGeneration");
 
-    const short = await upload(client, "A few words about scope. ".repeat(3));
+    // Two characters cannot name a subject. A few words can: they go to the setup call as a subject (ai/real.ts).
+    const short = await upload(client, "ab");
     expect(short.status).toBe(400);
     expect(short.data.code).toBe("too_short");
     expect(short.data.error).toBeTruthy();

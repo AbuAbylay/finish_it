@@ -39,7 +39,8 @@ const lessonSchema = z.object({
   title: z.string().min(1),
   sections: z.array(z.object({ heading: z.string(), body_md: z.string(), source_quote: z.string() })).min(1),
   key_points: z.array(z.string()),
-  quiz: z.array(questionSchema).length(3),
+  // 3 questions in a lesson of about 10 minutes, 4 in about 15, 5 in about 20 (ai/validate.ts lessonShape).
+  quiz: z.array(questionSchema).min(3).max(5),
   review_quiz: z.array(questionSchema),
 });
 
@@ -57,6 +58,7 @@ const coursePlanSchema = z.object({
     )
     .min(1),
   placement_test: z.array(questionSchema.extend({ unit_id: z.string().min(1) })).min(1),
+  source: z.enum(["course", "topic"]).optional(),
 });
 
 export const answersSchema = z.record(z.string().max(100), z.number().int().min(-1).max(9));

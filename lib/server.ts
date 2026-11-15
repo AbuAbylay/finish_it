@@ -6,7 +6,7 @@ import { today } from "./dates";
 import { countGenerations, loadLearner, loadLesson, loadPlan, loadSessionMinutes, loadUngradedLessonAmong, logGeneration, type LessonRow } from "./db";
 import { HttpError } from "./http";
 import { resolveLearner } from "./identity";
-import { MIN_SESSION_MINUTES, TWO_LESSON_MINUTES, checkAnswer, type LessonResult, type QuestionResult } from "./rules";
+import { MIN_SESSION_MINUTES, TWO_LESSON_MINUTES, checkAnswer, type LessonResult, type QuestionResult, estimateMinutes } from "./rules";
 import type { CoursePlan, LearnerRecord, Lesson, Order, Question } from "./types";
 
 export interface Ctx {
@@ -139,9 +139,20 @@ function checkedOf(lesson: Lesson, result: LessonResult | null, answers: Record<
   return out;
 }
 
-export function presentLesson(key: string, order: Order, lesson: Lesson, result: LessonResult | null, answers: Record<string, number> = {}) {
+export function presentLesson(
+  key: string,
+  order: Order,
+  lesson: Lesson,
+  result: LessonResult | null,
+  answers: Record<string, number> = {},
+  source: CoursePlan["source"] | null = null,
+) {
   return {
     lesson_key: key,
+    /** "topic" when the quotes come from study notes written by AI, not from the learner's own text. */
+    source: source ?? null,
+    /** The "About N min" label: an estimate from this lesson's own words and questions. */
+    estimate_minutes: estimateMinutes(lesson),
     order: {
       mode: order.mode,
       minutes: order.minutes,

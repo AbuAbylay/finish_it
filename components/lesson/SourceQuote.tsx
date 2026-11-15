@@ -1,11 +1,17 @@
-// "From your course": the visible proof that a lesson is grounded in the learner's material.
-import { lessonCopy } from "@/lib/copy/pages";
+"use client";
+// The course's own words: set in the course face (serif) with the marker stroke behind them, so a reader can
+// tell them from the coach's text without reading the label. For a plan built from AI-written study notes
+// the label says so instead of "From your course".
+import { useSourceCopy } from "@/components/CourseSource";
 
-export function SourceQuote({ quote, label = lessonCopy.fromCourse }: { quote: string; label?: string }) {
+export function SourceQuote({ quote, label, marked = true }: { quote: string; label?: string; /** false for a long passage shown whole: no marker. */ marked?: boolean }) {
+  const source = useSourceCopy();
   return (
-    <blockquote className="rounded-r-control border-l-4 border-accent bg-accent-soft/50 py-2 pr-3 pl-4">
-      <span className="block text-caption uppercase text-accent-strong">{label}</span>
-      <span className="text-body text-ink italic">“{quote}”</span>
-    </blockquote>
+    <figure className="space-y-1">
+      <figcaption className="text-caption text-ink-muted">{label ?? source.quoteLabel}</figcaption>
+      <blockquote className="font-serif text-body-lg whitespace-pre-line text-ink">
+        {marked ? <span className="course-quote">“{quote}”</span> : quote}
+      </blockquote>
+    </figure>
   );
 }

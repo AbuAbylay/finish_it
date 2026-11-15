@@ -3,6 +3,7 @@
 import {
   addDays,
   countStudyDays,
+  diffDays,
   isIsoDate,
   isStudyDay,
   nextStudyDay,
@@ -14,8 +15,11 @@ import {
   type Answers,
   type CoursePlan,
   type LearnerRecord,
+  type LearningDigest,
   type Lesson,
+  type Level,
   type MissedConcept,
+  type Mission,
   type Mode,
   type Order,
   type Profile,
@@ -413,8 +417,12 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string,
     .slice(0, MAX_REVIEW_CONCEPTS)
     .map((m) => ({ concept: m.concept, unit_id: m.unit_id, excerpt: (byId.get(m.unit_id) as Unit).excerpt }));
 
-  // Rule 5: the why line, from the branch taken and the review concepts.
-  const why = whyLine({ record, plan, today, mode, unit, minutes, review_concepts, missedDays: missedDays.length, lastScore: last?.score ?? 0 });
+  // Rule 7: how hard the lesson pushes, from the learner's recent results.
+  const level = levelFor(record, mode);
+
+  // Rule 5: the why line, from the branch taken and the review concepts. A stretch lesson says why it is one.
+  const reason = whyLine({ record, plan, today, mode, unit, minutes, review_concepts, missedDays: missedDays.length, lastScore: last?.score ?? 0 });
+  const why = level === "stretch" ? `${reason} ${STRETCH_LINE}` : reason;
 
   return {
     kind: "lesson",
@@ -429,12 +437,81 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string,
       },
       review_concepts,
       why,
+      level,
+      ...(profile ? { mission: missionOf(profile, today) } : {}),
+      learned: learnedOf(record, plan),
+      // A plan built from a subject's name: the lesson call is told its material is AI-written notes.
+      ...(plan.source === "topic" ? { source: "topic" as const } : {}),
     },
   };
 }
 
-/** Quiz length from PROJECT §4.4, used to turn a stored score back into "x of 3". */
-const QUIZ_LENGTH = 3;
+/** The learner's mission for the lesson call: the survey answers in the shape of the teach skill's MISSION.md. */
+export function missionOf(profile: Profile, today: string): Mission {
+  return {
+    course: profile.course_title,
+    why: profile.goal,
+    success: profile.success,
+    focus: profile.focus,
+    out_of_scope: profile.skip,
+    minutes_per_day: profile.minutes_per_day,
+    days_to_exam: isIsoDate(profile.deadline) ? diffDays(today, profile.deadline) : null,
+    obstacle: profile.blocker,
+  };
+}
+
+const MAX_DIGEST_ITEMS = 6;
+
+/**
+ * What the learner has shown so far, for the lesson call. Evidence only: a topic counts as demonstrated
+ * when its lesson quiz was passed, and a misconception stays listed until its reviews clear it.
+ */
+export function learnedOf(record: LearnerRecord, plan: CoursePlan): LearningDigest {
+  const titleOf = new Map(plan.units.map((u) => [u.unit_id, u.title]));
+  const demonstrated: LearningDigest["demonstrated"] = [];
+  const claimed: string[] = [];
+  for (const u of plan.units) {
+    const state = record.units[u.unit_id];
+    if (state?.status === "done") demonstrated.push({ topic: u.title, score: state.score ?? 0 });
+    else if (state?.status === "known") claimed.push(u.title);
+  }
+  const misconceptions = [...record.missed_concepts]
+    .filter((m) => titleOf.has(m.unit_id))
+    .sort((a, b) => b.times_missed - a.times_missed)
+    .slice(0, MAX_DIGEST_ITEMS)
+    .map((m) => ({ concept: m.concept, topic: titleOf.get(m.unit_id) as string, times_missed: m.times_missed }));
+  return {
+    starting_point: record.profile?.prior_knowledge ?? "",
+    demonstrated: demonstrated.slice(-MAX_DIGEST_ITEMS),
+    claimed,
+    misconceptions,
+  };
+}
+
+/** Two lessons in a row at this score or above make the next new lesson a stretch lesson. */
+export const STRETCH_SCORE = 0.8;
+const STRETCH_LINE = "You did well in your last two lessons, so today moves faster and goes further.";
+
+/**
+ * Rule 7: the level of the next lesson. A unit taught again is taught with more support. A new unit is a
+ * stretch lesson after two lessons in a row at STRETCH_SCORE or above. A catch-up is always standard.
+ */
+export function levelFor(record: LearnerRecord, mode: Mode): Level {
+  if (mode === "review") return "support";
+  if (mode === "catch_up") return "standard";
+  const lastTwo = record.sessions.slice(-2);
+  return lastTwo.length === 2 && lastTwo.every((s) => s.score >= STRETCH_SCORE) ? "stretch" : "standard";
+}
+
+/**
+ * A stored score in words. A lesson has 3, 4 or 5 questions and the record keeps only the score,
+ * so the line names a share and never a count that could be wrong.
+ */
+function scoreWords(score: number): string {
+  if (score <= 0) return "none of the questions right";
+  if (score >= 1) return "every question right";
+  return `${Math.round(score * 100)}% of the questions right`;
+}
 
 const quoted = (concepts: ReviewConcept[]) => concepts.map((c) => `“${c.concept}”`).join(" and ");
 
@@ -467,8 +544,7 @@ function whyLine(a: {
   if (a.mode === "review") {
     const last = a.record.sessions.at(-1);
     if (last && last.unit_id === a.unit.unit_id) {
-      const correct = Math.round(a.lastScore * QUIZ_LENGTH);
-      return `Last time you got ${correct} of ${QUIZ_LENGTH} on ${title}. Today goes over it again in a different way.${startsWithReview}`;
+      return `Last time you got ${scoreWords(a.lastScore)} on ${title}. Today goes over it again in a different way.${startsWithReview}`;
     }
     return `${title} still needs another pass. Today goes over it again in a different way.${startsWithReview}`;
   }
@@ -549,6 +625,18 @@ export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: str
     const date_kind = lastSession ? "studied" : date ? "tested" : null;
     return { ...base, state, mode: null, minutes, date, date_kind };
   });
+}
+
+/**
+ * How long a written lesson takes, from the lesson itself: reading at 180 words a minute plus
+ * 45 seconds per question, rounded to the minute (at least 1). Lessons have no fixed length, so the
+ * "About N min" label shows this and not the minutes the learner chose.
+ */
+export function estimateMinutes(lesson: Lesson): number {
+  const text = [lesson.title, ...lesson.sections.flatMap((s) => [s.heading, s.body_md, s.source_quote]), ...lesson.key_points].join(" ");
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const questions = lesson.quiz.length + lesson.review_quiz.length;
+  return Math.max(1, Math.round(words / 180 + questions * 0.75));
 }
 
 export function lessonStateOf(record: LearnerRecord, plan: CoursePlan, today: string, unitId: string): LessonState | null {
