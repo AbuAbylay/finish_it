@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { ExamRun } from "@/components/ExamRun";
 import { Icon } from "@/components/icons";
 import { CalendarHeader, CalendarMonth } from "@/components/shell/CalendarMonth";
 import { paceSentence } from "@/components/shell/PaceLine";
@@ -135,6 +136,7 @@ export default function PlanPage() {
             </p>
             <p className="text-body-lg text-ink">{planSentence(pace)}</p>
           </div>
+          <ExamRun days={plan.exam_run} />
           {plan.next && (
             <>
               <WhyLine text={plan.next.why} />

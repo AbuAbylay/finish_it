@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { ExamRun } from "@/components/ExamRun";
 import { Icon } from "@/components/icons";
 import { BandCard } from "@/components/lesson/BandCard";
 import { EmptyState } from "@/components/lesson/EmptyState";
@@ -140,6 +141,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
+              <ExamRun days={plan.exam_run} />
               <Link href="/plan" className={secondaryLink}>
                 {h.seePlan}
               </Link>

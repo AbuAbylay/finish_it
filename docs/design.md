@@ -8,9 +8,11 @@ The learner's course is the book and the coach is the pen in its margin. The pag
 
 - **The course speaks in a serif** (Literata, `font-serif`): lesson section text (`.prose-lesson`), the lesson title (`.lesson-title`) and every passage quoted from the learner's material.
 - **The coach speaks in a sans** (Atkinson Hyperlegible Next, `font-sans`): navigation, buttons, page titles, section headings inside a lesson, the reason for today's lesson, feedback and the plan.
-- **The highlighter marks the course's own words.** A course quote is drawn with a yellow marker stroke behind the text (`.course-quote` on an inline span, colour `highlight`). The only other yellow is today's cell in the calendar (`highlight-soft`). Yellow is used nowhere else.
+- **The highlighter marks the course's own words.** A course quote is drawn with a yellow marker stroke behind the text (`.course-quote` on an inline span, colour `highlight`). The only other yellow is today: today's cell in the calendar (`highlight-soft`) and today's square in the run to the exam. Yellow is used nowhere else.
 
 A reader should be able to tell which sentences came from the course without reading a label. A plan built from AI-written study notes keeps the look and changes the label to "From the AI-written notes".
+
+**The run to your exam** (`components/ExamRun.tsx`, on Home and Plan) is the one picture this product owns: a row of small squares, one per day from the learner's first day to exam day. Done days are crossed in green pen, today is marker yellow, planned days are outlined, missed days are red, exam day is filled with ink. The row has a text equivalent ("14 days to your exam on Sunday 29 November: 1 day studied, 13 study days left."), shown under it and read to screen readers. It is the third and last place yellow appears.
 
 Rules that follow from it: labels are sentence case (no all-caps), buttons carry no arrow, a card is a 1 px `line` border with no shadow, and strings use words instead of separator dots ("10 minutes, studied Sunday 15 November").
 

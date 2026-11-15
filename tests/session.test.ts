@@ -130,6 +130,17 @@ describe("session length over the API", () => {
     expect((await c.call(r.placement.DELETE, "/api/placement", { method: "DELETE" })).status).toBe(409);
   });
 
+  it("the plan carries the run to the exam: one day per square from the first day to exam day", async () => {
+    const c = await learner();
+    await pass(c);
+    const plan = await c.call<PlanResponse>(r.plan, "/api/plan");
+    const run = plan.data.exam_run;
+    expect(run).toHaveLength(15); // today and the 14 days to the exam
+    expect(run[0]).toMatchObject({ date: plan.data.today, status: "done", is_today: true });
+    expect(run.at(-1)).toMatchObject({ date: plan.data.deadline, is_deadline: true });
+    expect(run.slice(1, -1).every((d) => d.status === "planned")).toBe(true);
+  });
+
   it("the first choice of a day stands, so switching cannot write a second lesson", async () => {
     const c = await learner();
     expect((await choose(c, 20)).data.chosen).toBe(20);

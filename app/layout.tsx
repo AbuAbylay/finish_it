@@ -4,7 +4,7 @@ import { copy } from "@/lib/content";
 import "./globals.css";
 
 // Two voices (docs/design.md §2). The coach: navigation, buttons, reasons, feedback, the plan.
-const coach = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-coach", display: "swap" });
+const coach = Atkinson_Hyperlegible_Next({ subsets: ["latin"], variable: "--font-coach", display: "swap", adjustFontFallback: false });
 // The course: lesson text, the lesson title and every passage quoted from the learner's material.
 const course = Literata({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-course", display: "swap" });
 
