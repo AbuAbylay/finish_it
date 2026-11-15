@@ -9,7 +9,11 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "live": "node scripts/live.mjs start",
+    "live:status": "node scripts/live.mjs status",
+    "live:stop": "node scripts/live.mjs stop",
+    "set-key": "node scripts/live.mjs set-key"
   },
   "engines": {
     "node": ">=20"

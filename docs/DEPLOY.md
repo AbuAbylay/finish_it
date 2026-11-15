@@ -32,3 +32,23 @@ node scripts/e2e.mjs https://<your-app>    # full juror path; spends 3 lesson ge
 Then open `https://<your-app>/` in a private window. It should go to `/enter`, and "Try it with a sample PMP course" should reach a lesson in under two minutes. "Use my own course" takes pasted text (1,500 to 60,000 characters) through the setup call, which can take up to a minute.
 
 Keys live only in Vercel environment variables. `.env*` is git-ignored; never commit one.
+
+## Serving from one computer through ngrok
+
+For a demo without a host, the built app can run on a laptop with a public address from ngrok. Data stays in `./local.db` on that computer.
+
+```bash
+brew install --cask ngrok
+ngrok config add-authtoken <your token>   # once; stored in ngrok's own config, not in this repo
+npm run build
+npm run set-key        # paste the Anthropic API key (not shown); checked with the API, saved to .env.local
+npm run live           # starts the server and the tunnel, prints the public address
+npm run live:status
+npm run live:stop
+```
+
+- `npm run live` detaches both processes, so they keep running after the terminal is closed. Logs are in `.live/`.
+- `npm run set-key` replaces the key later: it refuses text that is not a key or that the API rejects, then restarts the server. The key is never passed on a command line and never reaches the browser.
+- After a code change: `npm run build`, then `npm run live`.
+- The address works only while that computer is on, awake and online. The script keeps a Mac from idle-sleeping; closing the lid still stops it.
+- On ngrok's free plan a visitor's browser first shows an ngrok notice page with a "Visit Site" button. A paid plan or a real host (above) removes it.
