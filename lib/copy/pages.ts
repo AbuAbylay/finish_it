@@ -129,14 +129,14 @@ export const testTitle = (questions: number | null) => (questions === null ? "Qu
 
 // Not in COPY.md: an address that leads nowhere.
 export const notFoundCopy = {
-  tabTitle: "Page not found · Finish-it coach",
+  tabTitle: "Page not found: Finish-it coach",
   title: "This page doesn't exist.",
   line: "The link may be old or mistyped. Your progress is safe.",
   back: "Go to the start",
 } as const;
 
 export const modeLabel: Record<Mode, string> = { new: "New topic", review: "Review", catch_up: "Catch-up" };
-export const aboutMinutes = (n: number) => `About ${n} min`;
+export const aboutMinutes = (n: number) => `About ${n} ${n === 1 ? "minute" : "minutes"}`;
 
 export const homeCopy = {
   title: "Home",
@@ -165,6 +165,14 @@ export function todayButton(plan: { studied_today: boolean; session: { lessons_i
   return plan.studied_today ? homeCopy.another : homeCopy.start;
 }
 
+/** The Plan page's one sentence in place of the number tiles: "3 lessons left and 12 study days to your exam, 9 to spare." */
+export function planSentence(p: { lessons_left: number; days_left: number; spare_days: number; on_track: boolean }): string {
+  if (p.lessons_left === 0) return "Every topic is covered.";
+  const head = `${plural(p.lessons_left, "lesson")} left and ${plural(p.days_left, "study day")} to your exam`;
+  if (!p.on_track) return `${head}. ${copy.pace.suggestion}`;
+  return p.spare_days > 0 ? `${head}, ${p.spare_days} to spare.` : `${head}, none to spare. Don't miss the next one.`;
+}
+
 /** Pace sentences from COPY.md "Calendar tracker and pace" (single source: copy.pace in lib/content.ts). */
 export function paceSentence(p: { lessons_left: number; days_left: number; spare_days: number; on_track: boolean; behind_by: number }): {
   line: string;
@@ -181,11 +189,11 @@ export const lessonsCopy = {
   title: "Lessons",
   heading: "Your lessons",
   sub: (course: string) => `${course}, in the order you'll study it.`,
-  studied: (date: string) => `Studied ${date}`,
-  planned: (date: string) => `Planned ${date}`,
-  today: "Today",
+  studied: (date: string) => `studied ${date}`,
+  planned: (date: string) => `planned ${date}`,
+  today: "today",
   fromCheck: "From your short check",
-  minutes: (n: number) => `${n} min`,
+  minutes: (n: number) => `${n} ${n === 1 ? "minute" : "minutes"}`,
   lockedHint: "Unlocks after you pass the lesson before it.",
 } as const;
 

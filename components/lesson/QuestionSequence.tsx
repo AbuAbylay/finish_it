@@ -92,7 +92,6 @@ export function QuestionSequence({
       {fb ? (
         <Button className="h-12 w-full sm:w-auto" onClick={next} disabled={busy}>
           {isLast ? doneLabel : t.next}
-          <Icon name="arrow-right" />
         </Button>
       ) : (
         <Button className="h-12 w-full sm:w-auto" onClick={check} disabled={choice === undefined || checking}>

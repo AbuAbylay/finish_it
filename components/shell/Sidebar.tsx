@@ -63,7 +63,7 @@ function IdBlock({ loginId, pref, inDrawer }: { loginId: string | null; pref: Si
   const details = loginId && (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-1">
-        <p className="px-1 text-caption uppercase text-ink-muted">{s.yourId}</p>
+        <p className="px-1 text-caption text-ink-muted">{s.yourId}</p>
         <div className="flex items-center">
           <IconButton icon="eye" label={shown ? s.hideId : s.showId} aria-pressed={shown} onClick={() => setShown((v) => !v)} />
           <IconButton icon={copied ? "check" : "copy"} label={copied ? s.copied : s.copyId} onClick={copyId} />

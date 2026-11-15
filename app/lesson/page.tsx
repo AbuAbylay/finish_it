@@ -90,7 +90,7 @@ function LessonHeader({ data, sessionLabel }: { data: PresentedLesson; sessionLa
     <header className="space-y-3">
       {sessionLabel && <p className="text-small font-semibold text-ink-muted">{sessionLabel}</p>}
       <ModeBadges mode={data.order.mode} minutes={data.estimate_minutes} />
-      <h1 className="text-h1 text-ink">{data.lesson.title}</h1>
+      <h1 className="lesson-title text-ink">{data.lesson.title}</h1>
       <WhyLine text={data.order.why} />
     </header>
   );
@@ -342,7 +342,7 @@ function LessonView() {
             </section>
           </>
         ) : (
-          <SourceQuote quote={data.unit.excerpt} label={source.rereadExcerpt} />
+          <SourceQuote quote={data.unit.excerpt} label={source.rereadExcerpt} marked={false} />
         )}
         <Button variant="secondary" onClick={() => router.push("/lessons")}>
           <Icon name="chevron-left" />
@@ -373,7 +373,7 @@ function LessonView() {
       <LessonHeader data={data} sessionLabel={sessionLabel} />
 
       {review.length > 0 && (
-        <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-warn-line bg-surface p-5 shadow-card md:p-6">
+        <section ref={reviewRef} aria-labelledby="review-title" className="scroll-mt-20 space-y-4 rounded-card border border-line bg-surface p-5 md:p-6">
           <h2 id="review-title" className="flex items-center gap-2 text-h2 text-ink">
             <Icon name="refresh" className="size-5 text-warn" />
             {reviewDone || result ? t.reviewSummary(reviewRight, review.length) : t.reviewTitle(review.length)}
@@ -416,7 +416,7 @@ function LessonView() {
       )}
 
       {(started || result) && (
-        <section aria-labelledby="quiz-title" className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+        <section aria-labelledby="quiz-title" className="space-y-4 rounded-card border border-line bg-surface p-5 md:p-6">
           <h2 id="quiz-title" className="text-h2 text-ink">
             {t.quizTitle(data.lesson.quiz.length)}
           </h2>

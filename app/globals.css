@@ -6,49 +6,50 @@
  * Tailwind's default palette stays available for legacy components while they migrate.
  */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Two voices (docs/design.md §2): the coach speaks in the sans, the course in the serif. Loaded in app/layout.tsx. */
+  --font-sans: var(--font-coach), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-course), ui-serif, Georgia, Cambria, "Times New Roman", serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Surfaces */
-  --color-canvas: #f6f5f2;
+  --color-canvas: #fafbfd;
   --color-surface: #ffffff;
-  --color-surface-muted: #f1efeb;
-  --color-sidebar: #fbfaf8;
-  --color-sidebar-active: #e9e6e1;
-  --color-overlay: rgb(28 26 23 / 0.4);
+  --color-surface-muted: #f1f3f7;
+  --color-sidebar: #ffffff;
+  --color-sidebar-active: #e9edf4;
+  --color-overlay: rgb(24 35 58 / 0.4);
 
   /* Text and lines */
-  --color-ink: #1c1a17;
-  --color-ink-muted: #5f5a53;
-  --color-ink-faint: #7a746b;
-  --color-line: #e4e1db;
-  --color-line-strong: #948d83;
+  --color-ink: #18233a;
+  --color-ink-muted: #566079;
+  --color-ink-faint: #6b7489;
+  --color-line: #dce1ea;
+  --color-line-strong: #7c869c;
 
   /* One dark primary action */
-  --color-primary: #1c1a17;
-  --color-primary-hover: #3a3631;
+  --color-primary: #18233a;
+  --color-primary-hover: #2a3857;
   --color-on-primary: #ffffff;
 
   /* States: always paired with an icon and a text label */
-  --color-accent: #1f7a55;
-  --color-accent-strong: #165c40;
-  --color-accent-soft: #e6f2ec;
+  --color-accent: #1b7a50;
+  --color-accent-strong: #145e3d;
+  --color-accent-soft: #e4f3eb;
   --color-warn: #8a5a00;
   --color-warn-soft: #fbf1dc;
   --color-warn-line: #ebcf94;
-  --color-danger: #b4233c;
-  --color-danger-soft: #fbe9ec;
-  --color-info: #1d5f8a;
-  --color-info-soft: #e5f0f8;
-  --color-locked: #6b665f;
-  --color-locked-soft: #efede9;
+  --color-danger: #c0303e;
+  --color-danger-soft: #fbe8ea;
+  --color-info: #27548a;
+  --color-info-soft: #e6eef8;
+  --color-locked: #6b7489;
+  --color-locked-soft: #eef0f4;
 
-  /* Soft illustrated card bands */
-  --color-band-green: #e3f0e8;
-  --color-band-sand: #f6ecd8;
-  --color-band-sky: #e2ecf5;
+  /* The marker: course quotes and today's calendar cell, nowhere else */
+  --color-highlight: #ffe566;
+  --color-highlight-soft: #fff4b8;
 
-  --color-ring: #1f7a55;
+  --color-ring: #2b59c3;
 
   /* Type scale */
   --text-display-lg: 2.5rem;
@@ -76,20 +77,20 @@
   --text-body--line-height: 1.5;
   --text-small: 0.875rem;
   --text-small--line-height: 1.45;
-  --text-caption: 0.75rem;
-  --text-caption--line-height: 1.35;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.4;
   --text-caption--font-weight: 600;
-  --text-caption--letter-spacing: 0.06em;
+  --text-caption--letter-spacing: 0;
 
   /* Radius */
-  --radius-card: 1.25rem;
-  --radius-control: 0.875rem;
-  --radius-cell: 0.625rem;
+  --radius-card: 0.625rem;
+  --radius-control: 0.5rem;
+  --radius-cell: 0.375rem;
 
   /* Elevation */
-  --shadow-card: 0 1px 2px rgb(28 26 23 / 0.04), 0 4px 16px rgb(28 26 23 / 0.05);
-  --shadow-raised: 0 2px 4px rgb(28 26 23 / 0.06), 0 8px 24px rgb(28 26 23 / 0.08);
-  --shadow-popover: 0 2px 6px rgb(28 26 23 / 0.06), 0 16px 40px rgb(28 26 23 / 0.16);
+  --shadow-card: none;
+  --shadow-raised: 0 1px 2px rgb(24 35 58 / 0.08);
+  --shadow-popover: 0 2px 6px rgb(24 35 58 / 0.06), 0 16px 40px rgb(24 35 58 / 0.16);
 
   /* Layout sizes (w-*, h-*, min-h-*, p-*) */
   --spacing-tap: 2.75rem;
@@ -103,7 +104,7 @@
 
   /* Content widths (max-w-*) */
   --container-content: 56rem;
-  --container-reading: 42rem;
+  --container-reading: 40rem;
 
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   @keyframes shimmer {
@@ -139,7 +140,7 @@
   }
 
   ::selection {
-    background-color: var(--color-accent-soft);
+    background-color: var(--color-info-soft);
   }
 
   input::placeholder,
@@ -159,31 +160,6 @@
   }
 }
 
-/* Soft illustrated header bands for cards: gradients and circles only, no images. */
-@utility band-green {
-  background:
-    radial-gradient(circle at 86% 28%, rgb(255 255 255 / 0.6) 0 14%, transparent 15%),
-    radial-gradient(circle at 74% 118%, rgb(31 122 85 / 0.16) 0 34%, transparent 35%),
-    radial-gradient(circle at 8% -30%, rgb(31 122 85 / 0.12) 0 42%, transparent 43%),
-    linear-gradient(135deg, var(--color-band-green), var(--color-surface-muted));
-}
-
-@utility band-sand {
-  background:
-    radial-gradient(circle at 88% 30%, rgb(255 255 255 / 0.6) 0 13%, transparent 14%),
-    radial-gradient(circle at 70% 120%, rgb(138 90 0 / 0.12) 0 34%, transparent 35%),
-    radial-gradient(circle at 10% -30%, rgb(138 90 0 / 0.09) 0 42%, transparent 43%),
-    linear-gradient(135deg, var(--color-band-sand), var(--color-surface-muted));
-}
-
-@utility band-sky {
-  background:
-    radial-gradient(circle at 86% 30%, rgb(255 255 255 / 0.6) 0 14%, transparent 15%),
-    radial-gradient(circle at 72% 118%, rgb(29 95 138 / 0.13) 0 34%, transparent 35%),
-    radial-gradient(circle at 8% -30%, rgb(29 95 138 / 0.1) 0 42%, transparent 43%),
-    linear-gradient(135deg, var(--color-band-sky), var(--color-surface-muted));
-}
-
 /* Loading placeholder block. Size it with w-* / h-*. */
 @utility skeleton {
   border-radius: var(--radius-cell);
@@ -201,8 +177,10 @@
 
 /* Lesson body text rendered from Markdown */
 .prose-lesson {
-  font-size: var(--text-body-lg);
-  line-height: var(--text-body-lg--line-height);
+  font-family: var(--font-serif);
+  font-size: 1.125rem;
+  line-height: 1.7;
+  max-width: 40rem;
   color: var(--color-ink);
 }
 .prose-lesson p {
@@ -225,7 +203,7 @@
   color: var(--color-ink-muted);
 }
 .prose-lesson strong {
-  font-weight: 650;
+  font-weight: 700;
 }
 .prose-lesson em {
   font-style: italic;
@@ -233,6 +211,7 @@
 .prose-lesson h1,
 .prose-lesson h2,
 .prose-lesson h3 {
+  font-family: var(--font-sans);
   font-size: var(--text-h3);
   line-height: var(--text-h3--line-height);
   font-weight: 700;
@@ -254,4 +233,30 @@
   border-left: 3px solid var(--color-line-strong);
   padding-left: 0.75rem;
   color: var(--color-ink-muted);
+}
+
+/*
+ * The marker stroke over the course's own words. On an inline span, so the stroke follows each line.
+ * Used by SourceQuote only; the one other yellow is today's calendar cell (highlight-soft).
+ */
+.course-quote {
+  background: linear-gradient(transparent 14%, var(--color-highlight) 14% 90%, transparent 90%);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 0.15em;
+}
+
+/* The lesson title, in the course face: 2rem on phones, 2.5rem from 768 px. */
+.lesson-title {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@media (min-width: 48rem) {
+  .lesson-title {
+    font-size: 2.5rem;
+    line-height: 1.15;
+  }
 }

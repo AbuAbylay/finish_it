@@ -28,7 +28,7 @@ export function ResultCard({
   const right = result.quiz.filter((r) => r.correct).length;
   const passed = result.status === "done";
   return (
-    <section aria-labelledby="result-title" className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+    <section aria-labelledby="result-title" className="space-y-4 rounded-card border border-line bg-surface p-5 md:p-6">
       <h2 id="result-title" className={`flex items-start gap-2 text-h2 ${passed ? "text-accent-strong" : "text-warn"}`}>
         <Icon name={passed ? "check-circle" : "refresh"} className="mt-1 size-6" />
         {passed ? t.resultPass(right, result.quiz.length) : t.resultFail(right, result.quiz.length)}
@@ -39,7 +39,7 @@ export function ResultCard({
           <ul className="mt-2 space-y-1">
             {result.coming_back.map((c) => (
               <li key={c.concept} className="text-body text-ink">
-                “{c.concept}” <span className="text-ink-muted">· {shortDate(c.review_due)}</span>
+                “{c.concept}” <span className="text-ink-muted">on {shortDate(c.review_due)}</span>
               </li>
             ))}
           </ul>
@@ -54,7 +54,6 @@ export function ResultCard({
           <div className="grid gap-2 sm:grid-cols-2">
             <Button className="h-12" onClick={onNext}>
               {t.toFinish}
-              <Icon name="arrow-right" />
             </Button>
             <Button variant="secondary" className="h-12" onClick={onPlan}>
               {t.backToPlan}
@@ -70,7 +69,6 @@ export function ResultCard({
           <div className="grid gap-2 sm:grid-cols-2">
             <Button className="h-12" onClick={onNext}>
               {copy.session.startNext(more.done + 1, more.total)}
-              <Icon name="arrow-right" />
             </Button>
             <Button variant="secondary" className="h-12" onClick={onPlan}>
               {t.backToPlan}
@@ -84,7 +82,6 @@ export function ResultCard({
           </Button>
           <Button variant="secondary" className="h-12" onClick={onNext}>
             {t.nextLesson}
-            <Icon name="arrow-right" />
           </Button>
         </div>
       )}

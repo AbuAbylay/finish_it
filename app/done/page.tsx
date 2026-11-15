@@ -68,7 +68,7 @@ export default function Done() {
             </Button>
           </Card>
         ) : (
-          <Card band="green" bandIcon="check-circle" className="space-y-5">
+          <Card className="space-y-5">
             <div className="space-y-2">
               <p className="text-small font-semibold text-ink-muted">{plan.course_title}</p>
               <h1 className="text-display text-ink">{copy.done.title}</h1>

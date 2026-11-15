@@ -195,7 +195,7 @@ export default function UploadPage() {
     <AppShell me={me} variant="flow" title={c.title}>
       <div className="mx-auto max-w-reading space-y-6">
         {phase === "built" && built && (
-          <Card band="green" bandIcon="check-circle" className="space-y-4">
+          <Card className="space-y-4">
             <div className="space-y-1">
               <h1 ref={builtRef} tabIndex={-1} className="text-h1 text-ink outline-none">
                 {c.doneTitle(built.units.length)}
@@ -215,7 +215,6 @@ export default function UploadPage() {
             <p className="text-body text-ink-muted">{c.doneNext}</p>
             <Button className="h-12 w-full" onClick={() => router.push(STAGE_HOME.survey)}>
               {enterCopy.startSurvey}
-              <Icon name="arrow-right" />
             </Button>
             <Button variant="ghost" className="w-full" onClick={() => setPhase("edit")}>
               {c.replace}
@@ -322,7 +321,6 @@ export default function UploadPage() {
             <div className="sticky bottom-0 -mx-4 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur md:mx-0 md:px-0">
               <Button className="h-12 w-full" onClick={() => void build()}>
                 {c.submit}
-                <Icon name="arrow-right" />
               </Button>
             </div>
 

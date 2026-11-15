@@ -45,7 +45,7 @@ export function SideChat({ lessonKey }: { lessonKey: string }) {
   }
 
   return (
-    <section aria-labelledby="chat-title" className="space-y-3 rounded-card border border-line bg-surface p-5 shadow-card">
+    <section aria-labelledby="chat-title" className="space-y-3 rounded-card border border-line bg-surface p-5">
       <h2 id="chat-title" className="text-h3 text-ink">
         {t.chatInviteAction}
       </h2>

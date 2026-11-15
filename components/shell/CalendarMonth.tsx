@@ -15,8 +15,10 @@ function cellStyle(d: Day): { cls: string; glyph: IconName | null; text: string 
   if (d.is_deadline) return { cls: "bg-primary text-on-primary", glyph: "flag", text: c.cell.exam };
   if (d.status === "done") return { cls: "bg-accent text-on-primary", glyph: "check", text: c.cell.done };
   if (d.status === "missed") return { cls: "bg-danger-soft text-danger", glyph: "close", text: c.cell.missed };
-  if (d.status === "planned") return { cls: "border border-line-strong bg-surface text-ink", glyph: null, text: c.cell.planned };
-  return { cls: "text-ink-faint", glyph: null, text: c.cell.rest };
+  // Today is filled with the marker's soft yellow unless the cell already carries a state fill (studied, missed).
+  const fill = d.is_today ? "bg-highlight-soft" : "";
+  if (d.status === "planned") return { cls: `border border-line-strong text-ink ${fill || "bg-surface"}`, glyph: null, text: c.cell.planned };
+  return { cls: d.is_today ? `text-ink ${fill}` : "text-ink-faint", glyph: null, text: c.cell.rest };
 }
 
 export function CalendarHeader({
@@ -46,7 +48,7 @@ export function CalendarHeader({
 export function CalendarMonth({ data }: { data: CalendarResponse }) {
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-7 gap-1 text-center text-caption uppercase text-ink-muted" aria-hidden>
+      <div className="grid grid-cols-7 gap-1 text-center text-caption text-ink-muted" aria-hidden>
         {c.weekdays.map((d) => (
           <span key={d}>{d}</span>
         ))}
@@ -77,7 +79,7 @@ function Legend() {
     { label: c.legend.done, cls: "bg-accent text-on-primary", glyph: "check" },
     { label: c.legend.missed, cls: "bg-danger-soft text-danger", glyph: "close" },
     { label: c.legend.planned, cls: "border border-line-strong bg-surface", glyph: null },
-    { label: c.legend.today, cls: "outline-2 outline-offset-1 outline-ink bg-surface", glyph: null },
+    { label: c.legend.today, cls: "outline-2 outline-offset-1 outline-ink bg-highlight-soft", glyph: null },
     { label: c.legend.exam, cls: "bg-primary text-on-primary", glyph: "flag" },
   ];
   return (

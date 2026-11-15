@@ -4,7 +4,7 @@ import { aboutMinutes, modeLabel } from "@/lib/copy/pages";
 import type { Mode } from "@/lib/types";
 
 const MODE: Record<Mode, { cls: string; icon: IconName }> = {
-  new: { cls: "bg-surface-muted text-ink", icon: "arrow-right" },
+  new: { cls: "bg-surface-muted text-ink", icon: "lessons" },
   review: { cls: "bg-warn-soft text-warn", icon: "refresh" },
   catch_up: { cls: "bg-surface-muted text-ink", icon: "clock" },
 };

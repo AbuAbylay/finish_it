@@ -135,8 +135,7 @@ export default function EnterPage() {
         </div>
 
         <div className="space-y-5">
-          <section aria-labelledby="start-title" className="overflow-hidden rounded-card border border-line bg-surface shadow-card">
-            <div className="band-green h-16" aria-hidden />
+          <section aria-labelledby="start-title" className="overflow-hidden rounded-card border border-line bg-surface">
             <div className="space-y-4 p-5 md:p-6">
               {phase === "loading" && <Spinner />}
 
@@ -147,7 +146,6 @@ export default function EnterPage() {
                   </h2>
                   <Button className="h-12 w-full" onClick={() => void generate("sample")} disabled={generating !== null}>
                     {generating === "sample" ? c.creating : c.primary}
-                    {generating !== "sample" && <Icon name="arrow-right" />}
                   </Button>
                   <p className="text-center text-small text-ink-muted">{c.underButton}</p>
                   <div className="space-y-2 border-t border-line pt-4">
@@ -162,7 +160,7 @@ export default function EnterPage() {
 
               {phase === "generated" && loginId && (
                 <>
-                  <h2 id="start-title" className="text-caption uppercase text-ink-muted">
+                  <h2 id="start-title" className="text-caption text-ink-muted">
                     {c.yourIdLabel}
                   </h2>
                   <div className="flex items-center gap-2 rounded-control bg-surface-muted p-3">
@@ -187,7 +185,6 @@ export default function EnterPage() {
                   </p>
                   <Button className="h-12 w-full" onClick={() => router.push(course === "own" ? "/upload" : STAGE_HOME.survey)}>
                     {course === "own" ? c.addCourse : c.startSurvey}
-                    <Icon name="arrow-right" />
                   </Button>
                 </>
               )}
@@ -199,7 +196,6 @@ export default function EnterPage() {
                   </h2>
                   <Button className="h-12 w-full" onClick={() => router.push(STAGE_HOME[me.stage])}>
                     {me.stage === "lesson" || me.stage === "done" ? c.continueLesson : c.continueSetup}
-                    <Icon name="arrow-right" />
                   </Button>
                   {me.stage === "survey" && (
                     <Button variant="secondary" className="w-full" onClick={() => router.push("/upload")}>
@@ -215,7 +211,7 @@ export default function EnterPage() {
           </section>
 
           {phase !== "returning" && phase !== "generated" && (
-            <section aria-labelledby="have-id" className="rounded-card border border-line bg-surface p-5 shadow-card md:p-6">
+            <section aria-labelledby="have-id" className="rounded-card border border-line bg-surface p-5 md:p-6">
               <h2 id="have-id" className="text-h3 text-ink">
                 {c.haveId}
               </h2>

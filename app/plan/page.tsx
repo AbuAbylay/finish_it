@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { Icon } from "@/components/icons";
 import { CalendarHeader, CalendarMonth } from "@/components/shell/CalendarMonth";
-import { PaceLine } from "@/components/shell/PaceLine";
+import { paceSentence } from "@/components/shell/PaceLine";
 import { useCalendar } from "@/components/shell/useCalendar";
 import { Button, Card, ErrorCard, Pill, Skeleton } from "@/components/ui";
 import { useGate } from "@/components/useGate";
@@ -13,19 +13,10 @@ import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse, ReminderResponse, ReminderType } from "@/lib/api-types";
 import { api, onDayChange } from "@/lib/client";
 import { copy } from "@/lib/content";
-import { todayButton } from "@/lib/copy/pages";
+import { planSentence, todayButton } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
 const p = copy.plan;
-
-function Stat({ value, label }: { value: number | string; label: string }) {
-  return (
-    <div className="rounded-card border border-line bg-surface p-4 text-center shadow-card">
-      <p className="text-h1 text-ink">{value}</p>
-      <p className="text-small text-ink-muted">{label}</p>
-    </div>
-  );
-}
 
 function EmailPreview({ data }: { data: ReminderResponse }) {
   const [tab, setTab] = useState<ReminderType>(data.today_type ?? "planned_day");
@@ -45,7 +36,7 @@ function EmailPreview({ data }: { data: ReminderResponse }) {
             aria-selected={tab === type}
             aria-controls={`${base}-panel`}
             onClick={() => setTab(type)}
-            className={`flex min-h-tap items-center justify-center gap-1.5 rounded-control px-2 text-small font-semibold ${tab === type ? "bg-surface text-ink shadow-card" : "text-ink-muted hover:text-ink"}`}
+            className={`flex min-h-tap items-center justify-center gap-1.5 rounded-control px-2 text-small font-semibold ${tab === type ? "bg-surface text-ink shadow-raised" : "text-ink-muted hover:text-ink"}`}
           >
             {p.emailTypes[type]}
             {data.today_type === type && <Icon name="clock" className="size-4 text-accent-strong" />}
@@ -111,11 +102,7 @@ export default function PlanPage() {
       <AppShell me={me} title={p.title}>
         <div className="space-y-5" aria-busy="true">
           <div className="skeleton h-10 w-2/3" />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="skeleton h-24" />
-            ))}
-          </div>
+          <div className="skeleton h-6 w-3/4" />
           <Card>
             <Skeleton lines={6} />
           </Card>
@@ -125,6 +112,7 @@ export default function PlanPage() {
   }
 
   const { pace } = plan;
+  const status = paceSentence(pace);
   return (
     <AppShell me={me} title={p.title}>
       <div className="space-y-5 md:space-y-6">
@@ -139,25 +127,23 @@ export default function PlanPage() {
 
         {error && <ErrorCard message={error} onRetry={load} />}
 
-        <Card band={pace.on_track ? "green" : "sand"} bandIcon={pace.on_track ? "check-circle" : "alert"} className="space-y-4">
-          <PaceLine pace={pace} size="lg" />
+        <section className="space-y-4" aria-label={copy.pace.heading}>
+          <div className="space-y-1">
+            <p className={`flex items-center gap-2 text-h2 ${status.behind ? "text-warn" : "text-accent-strong"}`}>
+              <Icon name={status.behind ? "alert" : "check-circle"} className="size-6" />
+              {status.status}.
+            </p>
+            <p className="text-body-lg text-ink">{planSentence(pace)}</p>
+          </div>
           {plan.next && (
-            <div className="space-y-3 border-t border-line pt-4">
+            <>
               <WhyLine text={plan.next.why} />
               <Button className="w-full sm:w-auto" onClick={() => router.push("/lesson")}>
                 {todayButton(plan)}
-                <Icon name="arrow-right" />
               </Button>
-            </div>
+            </>
           )}
-        </Card>
-
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat value={pace.lessons_left} label={p.lessonsLeft(pace.lessons_left)} />
-          <Stat value={pace.days_left} label={p.daysLeft(pace.days_left)} />
-          <Stat value={plan.streak} label={p.streak} />
-          <Stat value={plan.sessions_done} label={p.sessions(plan.sessions_done)} />
-        </div>
+        </section>
 
         <div className="grid gap-5 lg:grid-cols-2">
           <Card className="space-y-4">
@@ -182,7 +168,6 @@ export default function PlanPage() {
 
         <Link href="/lessons" className="inline-flex min-h-tap items-center gap-2 rounded-control font-semibold text-ink underline-offset-4 hover:underline">
           {p.allLessons}
-          <Icon name="arrow-right" />
         </Link>
       </div>
     </AppShell>

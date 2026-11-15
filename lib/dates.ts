@@ -89,3 +89,12 @@ export function shortDate(date: string): string {
   const d = new Date(toMs(date));
   return `${DAY_NAMES[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]}`;
 }
+
+const LONG_DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const LONG_MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "Monday 16 November", the date in words used on Home and in the lessons list. */
+export function longDate(date: string): string {
+  const d = new Date(toMs(date));
+  return `${LONG_DAY_NAMES[d.getUTCDay()]} ${d.getUTCDate()} ${LONG_MONTH_NAMES[d.getUTCMonth()]}`;
+}
