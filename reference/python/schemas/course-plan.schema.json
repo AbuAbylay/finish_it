@@ -1,0 +1,118 @@
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Course title"
+    },
+    "units": {
+      "type": "array",
+      "description": "6 to 10 units in teaching order",
+      "items": {
+        "type": "object",
+        "properties": {
+          "unit_id": {
+            "type": "string",
+            "description": "u01, u02, u03 and so on, in teaching order"
+          },
+          "title": {
+            "type": "string"
+          },
+          "objective": {
+            "type": "string",
+            "description": "Something the learner can do after this unit"
+          },
+          "start_quote": {
+            "type": "string",
+            "description": "The first 8 to 12 words of the passage in MATERIAL that teaches this unit, copied character for character"
+          },
+          "end_quote": {
+            "type": "string",
+            "description": "The last 8 to 12 words of that passage, copied character for character"
+          },
+          "prerequisites": {
+            "type": "array",
+            "description": "unit_id values that must come first; empty when none",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "unit_id",
+          "title",
+          "objective",
+          "start_quote",
+          "end_quote",
+          "prerequisites"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "placement_test": {
+      "type": "array",
+      "description": "Exactly 5 questions, each on a different unit, spread from the first unit to the last",
+      "items": {
+        "type": "object",
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "description": "p01 to p05"
+          },
+          "unit_id": {
+            "type": "string",
+            "description": "The unit this question tests"
+          },
+          "concept": {
+            "type": "string",
+            "description": "Short name of the idea tested, two to five words"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "options": {
+            "type": "array",
+            "description": "Exactly 4 options of the same length and form",
+            "items": {
+              "type": "string"
+            }
+          },
+          "correct_index": {
+            "type": "integer",
+            "enum": [
+              0,
+              1,
+              2,
+              3
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "description": "Why the correct option is correct, one or two sentences"
+          },
+          "source_quote": {
+            "type": "string",
+            "description": "One sentence copied character for character from this unit's passage"
+          }
+        },
+        "required": [
+          "question_id",
+          "unit_id",
+          "concept",
+          "prompt",
+          "options",
+          "correct_index",
+          "explanation",
+          "source_quote"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "title",
+    "units",
+    "placement_test"
+  ],
+  "additionalProperties": false
+}

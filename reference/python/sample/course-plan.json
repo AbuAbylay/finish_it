@@ -1,0 +1,179 @@
+{
+  "title": "PMP exam prep",
+  "units": [
+    {
+      "unit_id": "u01",
+      "title": "What a Project Is",
+      "objective": "Tell a project from ongoing operations and name the three linked constraints of scope, time and cost.",
+      "start_quote": "A project is a temporary effort that produces a unique result.",
+      "end_quote": "but she does not yet have a project.",
+      "prerequisites": [],
+      "excerpt": "A project is a temporary effort that produces a unique result. Temporary means it has a planned beginning and a planned end. Unique means the result is something the organization did not have before: a new product, a new service, a changed process or a specific outcome.\n\nOperations are the opposite. Operations are ongoing and repeat the same work to keep the organization running. Booking patients every morning is operations. Replacing the appointment book with an online system is a project, because it starts, delivers one specific result and then ends. When the new system is live and handed to the front-desk staff, the project is over and the daily use of the system becomes operations.\n\nTwo quick tests tell a project from operations. First, ask whether the work has an end date that matters. Second, ask whether finishing it creates something new. If both answers are yes, it is a project.\n\nEvery project is limited by three linked constraints: scope, time and cost. Scope is what the project will deliver. Time is how long it may take. Cost is how much may be spent. Changing one of the three puts pressure on the other two. If the clinic adds text-message reminders to the scope, the project will need more time, more money or both. If the deadline moves two weeks earlier, either the scope shrinks or the cost rises. Quality sits in the middle of these three: squeezing all of them at once usually shows up as a weaker result.\n\nA project begins formally with a project charter. The charter is a short document, approved by a sponsor, that authorizes the project to exist and gives the project manager the authority to use the organization's people and money for it. The sponsor is the person who provides the funding and backs the project when decisions go above the project manager's level. For Dana, the sponsor is the clinic director. Until the director signs the charter, Dana has an idea and a request, but she does not yet have a project"
+    },
+    {
+      "unit_id": "u02",
+      "title": "The Project Life Cycle",
+      "objective": "Describe the five process groups and choose between predictive, adaptive and hybrid approaches for a given piece of work.",
+      "start_quote": "Projects move through five groups of work. Initiating defines",
+      "end_quote": "staff will only know what works after trying a first version.",
+      "prerequisites": [
+        "u01"
+      ],
+      "excerpt": "Projects move through five groups of work. Initiating defines the project at a high level and obtains approval to start; the charter is its main output. Planning works out how the goal will be reached: what will be delivered, in what order, by whom and at what cost. Executing is doing the planned work and producing the deliverables. Monitoring and controlling runs alongside executing: it compares actual progress with the plan and corrects the course when the two drift apart. Closing confirms that the work is accepted, hands the result to its owners and records what was learned.\n\nThese groups are not strictly one after another. Planning continues as new information arrives, and monitoring and controlling happens from the first day to the last. What matters is that each kind of work gets done, not that it happens in a rigid sequence.\n\nThere are two broad ways to run the life cycle. In a predictive approach, also called plan-driven or waterfall, the team plans most of the work up front and then follows the plan, changing it only through a formal process. This suits projects where the requirements are well understood and unlikely to change, such as moving an office or installing known equipment.\n\nIn an adaptive approach, also called agile, the team plans in detail only a short distance ahead, delivers a small working piece, collects feedback and then plans the next piece. This suits projects where the requirements are unclear at the start or likely to change as people see early results.\n\nMany real projects are hybrid. Dana can treat the purchase and installation of the scheduling software as predictive, because the steps are known. She can treat the design of the appointment types and reminder messages as adaptive, because the front-desk staff will only know what works after trying a first version"
+    },
+    {
+      "unit_id": "u03",
+      "title": "Stakeholders",
+      "objective": "Identify stakeholders, place them on the power and interest grid and choose an engagement strategy for each.",
+      "start_quote": "A stakeholder is any person or group that can affect the project",
+      "end_quote": "so the analysis is reviewed regularly rather than done once.",
+      "prerequisites": [
+        "u02"
+      ],
+      "excerpt": "A stakeholder is any person or group that can affect the project or is affected by it. Stakeholders include people who want the project to succeed, people who are indifferent and people who would prefer it to fail. Missing a stakeholder early is one of the most common causes of late surprises.\n\nThe first step is to identify stakeholders and write them down in a stakeholder register. For the clinic, the list includes the director, the doctors, the front-desk staff, the patients, the software vendor and the part-time IT contractor.\n\nThe second step is to analyse them. A common tool is the power and interest grid. Power is how much a stakeholder can change the project's outcome. Interest is how much they care about it. The grid gives four strategies. Stakeholders with high power and high interest are managed closely: they are involved in decisions and updated often. Stakeholders with high power and low interest are kept satisfied: their needs are met without flooding them with detail. Stakeholders with low power and high interest are kept informed: they receive regular updates and a way to raise concerns. Stakeholders with low power and low interest are monitored with minimal effort.\n\nAt the clinic, the director has high power and high interest, so Dana manages that relationship closely. The doctors have high power but limited interest in the software itself; Dana keeps them satisfied by making sure their schedules appear correctly. The front-desk staff have little formal power but very high interest, since they will use the system all day; Dana keeps them informed and asks for their input.\n\nThe third step is engagement, which continues for the whole project. Engagement means communicating in the way each stakeholder needs, listening for resistance and adjusting. A stakeholder's position can change, so the analysis is reviewed regularly rather than done once"
+    },
+    {
+      "unit_id": "u04",
+      "title": "Scope and the Work Breakdown Structure",
+      "objective": "Write a scope statement with exclusions, build a WBS using the 100 percent rule and control scope creep through change control.",
+      "start_quote": "Scope is the full description of what the project will deliver",
+      "end_quote": "consumes time and money and adds risk without an agreed benefit.",
+      "prerequisites": [
+        "u03"
+      ],
+      "excerpt": "Scope is the full description of what the project will deliver and the work required to deliver it. A scope statement also lists exclusions: things the project will not do. Writing exclusions down prevents arguments later. For the clinic, the scope includes online booking, a staff calendar and training for the front desk. It excludes billing, which stays in the existing accounting system.\n\nA deliverable is any product, result or capability that the project must produce. The work breakdown structure, or WBS, is a hierarchy that divides the total scope into smaller deliverables until each piece is small enough to estimate and assign. The lowest level of the WBS is called a work package. The WBS is organized around deliverables, not around departments or dates.\n\nA sound WBS follows the 100 percent rule: the items at each level add up to all of the work of the level above, with nothing missing and nothing extra. If a piece of work is not in the WBS, it is not in the project.\n\nScope creep is the uncontrolled growth of scope: new features or tasks are added without adjusting time, cost and resources. It usually arrives as small, reasonable requests. One doctor asks for colour-coded appointment types; another asks for a waiting-list feature. Each request alone looks harmless, but together they can sink the schedule.\n\nThe defence is change control. Every requested change is written down, its effect on scope, time and cost is assessed, and someone with authority approves or rejects it. Approved changes update the plan. Rejected changes are recorded with the reason.\n\nGold plating is a related mistake made by the team itself: delivering extras that nobody asked for. It consumes time and money and adds risk without an agreed benefit"
+    },
+    {
+      "unit_id": "u05",
+      "title": "Building a Schedule",
+      "objective": "Sequence activities by dependency, find the critical path and calculate float for non-critical activities.",
+      "start_quote": "A schedule starts from the work packages. Each work package is broken",
+      "end_quote": "reporting progress to stakeholders who do not need activity-level detail.",
+      "prerequisites": [
+        "u04"
+      ],
+      "excerpt": "A schedule starts from the work packages. Each work package is broken into activities, the specific actions needed to produce it. The team then puts the activities in order by identifying dependencies.\n\nThe most common dependency is finish-to-start: one activity must finish before the next can start. The software must be installed before staff can be trained on it. Less common types are start-to-start, where two activities begin together, and finish-to-finish, where they must end together.\n\nNext, the team estimates how long each activity will take. With the order and the durations known, the activities form a network of paths from the start of the project to its end.\n\nThe critical path is the longest path through that network. It determines the shortest time in which the whole project can be completed. A delay to any activity on the critical path delays the project by the same amount, unless time is recovered elsewhere on that path.\n\nFloat, also called slack, is the amount of time an activity can be delayed without delaying the project's finish date. Activities on the critical path normally have zero float. Activities on other paths have some float, which gives the project manager room to move people around.\n\nSuppose installing the software takes five days and must finish before three days of training. In parallel, writing the patient announcement takes two days and is needed only by go-live. The install-then-train path takes eight days. The announcement path takes two. The critical path is install then train, and the announcement has six days of float.\n\nA milestone is a significant point in the schedule with no duration, such as \"system installed\" or \"go-live\". Milestones are useful for reporting progress to stakeholders who do not need activity-level detail"
+    },
+    {
+      "unit_id": "u06",
+      "title": "Estimating and the Budget",
+      "objective": "Choose an estimating technique, calculate a three-point estimate and separate contingency from management reserves.",
+      "start_quote": "Estimates are forecasts, and their accuracy improves as the project",
+      "end_quote": "version of the plan that performance is compared with.",
+      "prerequisites": [
+        "u05"
+      ],
+      "excerpt": "Estimates are forecasts, and their accuracy improves as the project becomes better understood. Three techniques cover most situations.\n\nAnalogous estimating uses the actual cost or duration of a similar past project as the basis for the new one. It is fast and cheap but only as good as the similarity between the two projects. It is the usual choice early on, when little detail exists.\n\nBottom-up estimating estimates each work package separately and adds the results together. It takes longer but is more accurate, because it rests on the detail of the WBS.\n\nThree-point estimating deals with uncertainty by using three figures for an activity: an optimistic estimate (O), a most likely estimate (M) and a pessimistic estimate (P). A widely used formula weights the most likely figure four times: expected value = (O + 4M + P) / 6. If training could take two days at best, three days most likely and seven days at worst, the expected duration is (2 + 12 + 7) / 6 = 3.5 days.\n\nThe project budget is built from the cost estimates plus reserves. A contingency reserve is money or time set aside for risks that have been identified, sometimes called the known unknowns. It is part of the cost baseline, and the project manager can normally use it when one of those risks occurs. A management reserve is set aside for risks nobody identified, the unknown unknowns. It is not part of the cost baseline, and using it normally needs approval from management above the project manager.\n\nThe cost baseline is the approved, time-phased budget against which actual spending is measured. Once approved, it changes only through formal change control. The same idea applies to the scope baseline and the schedule baseline: each is the approved version of the plan that performance is compared with"
+    },
+    {
+      "unit_id": "u07",
+      "title": "Managing Risk",
+      "objective": "Separate risks from issues, rank risks by probability and impact and pick a suitable response for each threat or opportunity.",
+      "start_quote": "A risk is an uncertain event that, if it happens, will affect",
+      "end_quote": "a firm date after which the paper book is removed.",
+      "prerequisites": [
+        "u06"
+      ],
+      "excerpt": "A risk is an uncertain event that, if it happens, will affect at least one project objective. The key word is uncertain: a risk has not happened yet and may never happen. An issue is different. An issue is something that has already happened and needs to be dealt with now. \"The vendor might deliver late\" is a risk. \"The vendor delivered late\" is an issue.\n\nRisks can be negative or positive. A negative risk is a threat. A positive risk is an opportunity: an uncertain event that would help the project, such as a vendor discount that may become available.\n\nRisk management starts with identifying risks and recording them in a risk register. Each risk is then assessed on two scales: the probability that it will occur and the impact if it does. Multiplying or combining the two ranks the risks, so attention goes to those that are both likely and damaging rather than to those that are merely frightening.\n\nFor each important threat the team chooses a response. To avoid a risk is to change the plan so the risk can no longer occur, for example by dropping a risky feature. To mitigate is to reduce the probability or the impact, for example by training staff a week before go-live instead of the day before. To transfer is to shift the consequences to another party, typically through insurance or a contract that makes the vendor responsible. To accept is to take no action in advance, either because the risk is small or because no response is worth its cost; acceptance can include setting aside a contingency reserve.\n\nOpportunities have matching responses: exploit, enhance, share and accept.\n\nEach risk has an owner, a named person who watches it and carries out the response. Risks are reviewed throughout the project, because new ones appear and old ones expire. At the clinic, Dana's top threat is that front-desk staff will keep using the paper book in parallel, so the two records disagree. She mitigates it by setting a firm date after which the paper book is removed"
+    },
+    {
+      "unit_id": "u08",
+      "title": "Working in an Agile Way",
+      "objective": "Explain Scrum roles, events and sprints and write backlog items as user stories.",
+      "start_quote": "Agile approaches deliver value in small increments and use feedback",
+      "end_quote": "the staff's reaction shapes what the second sprint adds.",
+      "prerequisites": [
+        "u07"
+      ],
+      "excerpt": "Agile approaches deliver value in small increments and use feedback to decide what to build next. Scrum is the most widely used agile framework.\n\nWork in Scrum happens in sprints: fixed periods of one month or less, often two weeks, each of which ends with a usable increment of the product. The length of a sprint does not change once it has started.\n\nScrum defines three accountabilities. The product owner decides what is most valuable and keeps the product backlog in order. The product backlog is the ordered list of everything that might be needed in the product. The scrum master helps the team apply Scrum well and removes obstacles that slow the team down; the scrum master is not the team's boss. The developers are the people who do the work of building the increment.\n\nEach sprint contains four events. Sprint planning opens the sprint: the team selects items from the top of the product backlog and plans how to deliver them. The daily scrum is a meeting of at most fifteen minutes in which the developers inspect progress toward the sprint goal and adjust the plan for the next day. The sprint review takes place at the end of the sprint: the team shows the increment to stakeholders and gathers feedback. The sprint retrospective closes the sprint: the team examines how it worked and agrees on improvements for the next one.\n\nBacklog items are often written as user stories, short descriptions of a need from the user's point of view, such as \"As a patient, I want to book an appointment from my phone so that I do not have to call during work hours.\"\n\nAgile fits best when requirements are uncertain and early feedback is valuable. It fits less well when the work is fixed by regulation or when partial delivery has no value. Dana uses two-week sprints for the reminder messages: the first sprint delivers a plain reminder, and the staff's reaction shapes what the second sprint adds"
+    },
+    {
+      "unit_id": "u09",
+      "title": "Tracking Progress with Earned Value",
+      "objective": "Calculate schedule and cost variances and performance indexes and read what they signal about a project.",
+      "start_quote": "Earned value management answers two questions with numbers",
+      "end_quote": "it tells her while there is still time to act.",
+      "prerequisites": [
+        "u08"
+      ],
+      "excerpt": "Earned value management answers two questions with numbers: is the project ahead of or behind schedule, and is it over or under budget? It uses three measures, all expressed in money.\n\nPlanned value (PV) is the budgeted cost of the work that was scheduled to be done by now. Earned value (EV) is the budgeted cost of the work that has actually been completed by now. Actual cost (AC) is what has really been spent on the completed work.\n\nTwo variances follow. Schedule variance is SV = EV \u2212 PV. A negative result means less work is done than planned, so the project is behind schedule. Cost variance is CV = EV \u2212 AC. A negative result means the completed work cost more than budgeted, so the project is over budget. In both cases a positive number is good news.\n\nTwo indexes express the same facts as ratios. The schedule performance index is SPI = EV / PV. The cost performance index is CPI = EV / AC. A value above 1 is favourable, a value below 1 is unfavourable and exactly 1 means the project is on plan.\n\nSuppose the clinic project has a budget of $10,000 and was planned to be half done by today, so PV is $5,000. In fact 40 percent of the work is complete, so EV is $4,000. The team has spent $4,500, so AC is $4,500. Then SV = 4,000 \u2212 5,000 = \u22121,000: the project is behind schedule. CV = 4,000 \u2212 4,500 = \u2212500: it is over budget. SPI = 4,000 / 5,000 = 0.8 and CPI = 4,000 / 4,500, which is about 0.89.\n\nThe value of these numbers is early warning. A CPI of 0.89 at the halfway point tells Dana that, if nothing changes, the finished project will cost more than its budget, and it tells her while there is still time to act"
+    }
+  ],
+  "placement_test": [
+    {
+      "question_id": "p01",
+      "unit_id": "u01",
+      "concept": "project versus operations",
+      "prompt": "Which of these is a project rather than operations?",
+      "options": [
+        "Booking patients every morning in the same way",
+        "Replacing the paper book with a new online system",
+        "Answering the phones during regular clinic hours",
+        "Printing the same reminder letters each week"
+      ],
+      "correct_index": 1,
+      "explanation": "Replacing the book is temporary and creates a unique result, so it is a project; the other options repeat ongoing work.",
+      "source_quote": "Replacing the appointment book with an online system is a project, because it starts, delivers one specific result and then ends."
+    },
+    {
+      "question_id": "p02",
+      "unit_id": "u03",
+      "concept": "stakeholder engagement strategy",
+      "prompt": "The front-desk staff have little power but very high interest. Which strategy fits them?",
+      "options": [
+        "Keep them satisfied without detailed updates",
+        "Manage them closely in every decision",
+        "Monitor them with minimal effort",
+        "Keep them informed with regular updates"
+      ],
+      "correct_index": 3,
+      "explanation": "Low power and high interest calls for keeping stakeholders informed with regular updates and a way to raise concerns.",
+      "source_quote": "The front-desk staff have little formal power but very high interest, since they will use the system all day; Dana keeps them informed and asks for their input."
+    },
+    {
+      "question_id": "p03",
+      "unit_id": "u05",
+      "concept": "critical path length",
+      "prompt": "Installing software takes 5 days and must finish before 3 days of training. A separate announcement takes 2 days and is needed only by go-live. What is the critical path duration?",
+      "options": [
+        "Two days along the patient announcement path",
+        "Five days along the software installation alone",
+        "Eight days along the install then train path",
+        "Six days along the announcement float path"
+      ],
+      "correct_index": 2,
+      "explanation": "The longest path is install then train, which takes 5 plus 3 days, so the critical path lasts eight days.",
+      "source_quote": "The install-then-train path takes eight days."
+    },
+    {
+      "question_id": "p04",
+      "unit_id": "u07",
+      "concept": "risk versus issue",
+      "prompt": "Which statement describes a risk rather than an issue?",
+      "options": [
+        "The vendor might deliver the software late",
+        "The vendor delivered the software late",
+        "The vendor has already missed the deadline",
+        "The vendor is currently late with training"
+      ],
+      "correct_index": 0,
+      "explanation": "A risk is an uncertain future event that has not happened yet, so only the statement about a possible late delivery is a risk.",
+      "source_quote": "The key word is uncertain: a risk has not happened yet and may never happen."
+    },
+    {
+      "question_id": "p05",
+      "unit_id": "u09",
+      "concept": "early warning from CPI",
+      "prompt": "A project has a CPI of 0.89 at its halfway point. What does this signal?",
+      "options": [
+        "The finished project will come in under budget",
+        "The schedule is running ahead of the plan",
+        "The finished project will cost more than budget",
+        "The completed work cost exactly what was planned"
+      ],
+      "correct_index": 2,
+      "explanation": "A CPI below 1 means each dollar earns less than a dollar of value, so if nothing changes the finished project will overrun its budget.",
+      "source_quote": "The value of these numbers is early warning."
+    }
+  ]
+}

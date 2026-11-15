@@ -113,6 +113,7 @@ AI_CONTRACT_LIVE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run
 | `templates/` | Reminder email templates |
 | `tests/`, `scripts/e2e.mjs` | Unit and API tests, and the end-to-end script |
 | `docs/` | `INTEGRATION.md` (AI layer), `DEPLOY.md` (Vercel and Turso), `design.md` (design tokens) |
+| `reference/python/` | The first version of the AI layer and of the rules, written in Python, kept with its own README, prompts, schemas, sample course, templates, tests and the team's project documents. The app does not import it. Where the two differ, the TypeScript code above is what runs |
 
 ## Credits
 

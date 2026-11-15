@@ -1,0 +1,46 @@
+{
+  "planned_day": {
+    "time": {
+      "subject": "{minutes} minutes for {course_title} today",
+      "body": "Today's lesson is {unit_title}. It takes {minutes} minutes, quiz included.\n\n{pace}\n\n{link}"
+    },
+    "motivation": {
+      "subject": "Today's step toward your goal",
+      "body": "You told us why you are doing this: {goal}\n\nToday's step is {unit_title}, {minutes} minutes.\n\n{pace}\n\n{link}"
+    },
+    "difficulty": {
+      "subject": "{unit_title}, one small piece at a time",
+      "body": "Today's lesson covers one idea, {unit_title}, in {minutes} minutes. It starts from what you already know, and anything you miss comes back later as a quick review.\n\n{pace}\n\n{link}"
+    },
+    "forgetting": {
+      "subject": "Keep it fresh: {minutes} minutes today",
+      "body": "Today's lesson is {unit_title}, {minutes} minutes. Anything you got wrong earlier comes back as a quick review, so it stays with you.\n\n{pace}\n\n{link}"
+    },
+    "other": {
+      "subject": "Your {course_title} lesson is ready",
+      "body": "Today: {unit_title}, {minutes} minutes.\n\n{pace}\n\n{link}"
+    }
+  },
+  "missed_day": {
+    "time": {
+      "subject": "{minutes} minutes keeps your {course_title} plan alive",
+      "body": "Yesterday got away from you. Today's session is a short one on {unit_title}: {minutes} minutes and you are done.\n\n{pace}\n\n{link}"
+    },
+    "motivation": {
+      "subject": "Still on for {course_title}?",
+      "body": "You missed yesterday's session. The reason you started has not changed: {goal}\n\n{minutes} minutes on {unit_title} gets you moving again.\n\n{pace}\n\n{link}"
+    },
+    "difficulty": {
+      "subject": "{unit_title}: today goes slower",
+      "body": "You missed yesterday's session. If the last lesson felt hard, today is a short session on {unit_title} that recaps before it moves on. {minutes} minutes.\n\n{pace}\n\n{link}"
+    },
+    "forgetting": {
+      "subject": "A quick recap before it fades",
+      "body": "You missed yesterday's session. Today's {minutes} minutes on {unit_title} start with a recap, so the gap does not cost you what you learned.\n\n{pace}\n\n{link}"
+    },
+    "other": {
+      "subject": "Pick up where you left off",
+      "body": "You missed yesterday's session. Today's session on {unit_title} takes {minutes} minutes.\n\n{pace}\n\n{link}"
+    }
+  }
+}
