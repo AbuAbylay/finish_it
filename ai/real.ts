@@ -170,6 +170,8 @@ async function checked<T>(job: {
     if (result.ok) return result.value;
     errors = result.errors;
     detail = `try ${attempt}: ${errors.join("; ")}`;
+    // What the validator turned down, for the server log: this is how prompt problems show up.
+    console.warn(`ai ${job.call}: reply rejected (${detail})`);
   }
   return { error: job.sorry, detail };
 }

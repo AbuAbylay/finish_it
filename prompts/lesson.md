@@ -20,10 +20,10 @@ The user message is `<order>`: JSON prepared by the app. It names the unit to te
 ## The quiz
 
 - `quiz`: exactly 3 questions on this unit. Each one asks the learner to apply the idea to a new situation. A learner who only memorised a sentence should not be able to answer.
-- `review_quiz`: one question for each entry in `review_concepts`, in the same order, written from that entry's `excerpt`. Use the entry's `concept` text unchanged as the question's `concept`. When `review_concepts` is empty, `review_quiz` is an empty list.
+- `review_quiz`: one question for each entry in `review_concepts`, in the same order, written from that entry's `excerpt`. Use the entry's `concept` text unchanged as the question's `concept`. A review question follows the same rules as a quiz question, the option-length rule included. When `review_concepts` is empty, `review_quiz` is an empty list.
 - For every question:
   - `concept` names the idea being tested in two to five lower-case words ("risk vs issue"). The learner sees this name before answering, and later in lines such as "You missed 'risk vs issue'", so it names the topic and never contains the answer.
-  - Four options with the same length and form, exactly one correct. Wrong options are plausible mistakes. Do not let the correct option be the longest or the most detailed; code rejects a question whose correct option stands out by length. Vary the position of the correct option from question to question.
+  - Four options with the same form, exactly one correct. Wrong options are plausible mistakes. Give all four options about the same number of words, within three words of each other: a correct option that is noticeably longer or shorter than the rest gives the answer away. Code measures this and rejects a question whose correct option is more than 1.5 times as long, in characters, as the average of the other three, or less than half as long. Vary the position of the correct option from question to question.
   - `correct_index` is the position of the correct option, counting from 0.
   - `explanation` says in one or two sentences why the correct option is right.
   - `source_quote` is one continuous span of 8 to 30 words copied exactly from the excerpt the question is written from: the unit's excerpt for `quiz`, the review entry's excerpt for `review_quiz`.
