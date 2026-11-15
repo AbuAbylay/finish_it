@@ -4,7 +4,7 @@ Next.js 15 on Vercel with a Turso (libSQL) database. Push-to-deploy from GitHub 
 
 1. **GitHub:** push this repo to a public repository.
 2. **Turso:** create a database. Copy its `libsql://…` URL and create an auth token.
-3. **Vercel:** import the GitHub repo (framework preset: Next.js; build and output settings stay at their defaults; Node 20 or newer). Under Settings → Environment Variables (Production) set:
+3. **Vercel:** import the GitHub repo (framework preset: Next.js; build and output settings stay at their defaults; Node 22 or newer). Under Settings → Environment Variables (Production) set:
 
 | Variable | Required | Value |
 |---|---|---|
@@ -38,7 +38,7 @@ Keys live only in Vercel environment variables. `.env*` is git-ignored; never co
 For a demo without a host, the built app can run on a laptop with a public address from ngrok. Data stays in `./local.db` on that computer.
 
 ```bash
-brew install --cask ngrok
+brew install --cask ngrok                 # macOS; on Linux put the ngrok binary on your PATH
 ngrok config add-authtoken <your token>   # once; stored in ngrok's own config, not in this repo
 npm run build
 npm run set-key        # paste the Anthropic API key (not shown); checked with the API, saved to .env.local
@@ -50,5 +50,7 @@ npm run live:stop
 - `npm run live` detaches both processes, so they keep running after the terminal is closed. Logs are in `.live/`.
 - `npm run set-key` replaces the key later: it refuses text that is not a key or that the API rejects, then restarts the server. The key is never passed on a command line and never reaches the browser.
 - After a code change: `npm run build`, then `npm run live`.
+- `npm run build` and `next dev` share the `.next` folder. To keep a dev server running beside the live one, start it with its own folder: `NEXT_DIST_DIR=.next-dev PORT=3001 npm run dev`.
+- The script works on macOS and Linux (Node 22 or newer). On Linux it finds the server process with `ss`.
 - The address works only while that computer is on, awake and online. The script keeps a Mac from idle-sleeping; closing the lid still stops it.
 - On ngrok's free plan a visitor's browser first shows an ngrok notice page with a "Visit Site" button. A paid plan or a real host (above) removes it.
