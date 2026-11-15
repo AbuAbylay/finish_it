@@ -508,9 +508,62 @@ describe("setupCourse", () => {
     expect(validatePlan(out, decorated).ok).toBe(true);
   });
 
-  it("refuses material that is too short without calling the model", async () => {
-    const out = await setupCourse("A few words only. ".repeat(20), null);
-    expect(out).toMatchObject({ error: expect.stringContaining("too short") });
+  /** What the setup call returns for a subject alone: the model writes each unit's passage. */
+  function modelTopic() {
+    const units = plan.units.slice(0, 5);
+    return {
+      subject_found: true,
+      title: "PMP exam prep",
+      units: units.map((u, i) => ({ unit_id: `unit-${i + 1}`, title: u.title, objective: u.objective, passage: u.excerpt, prerequisites: [] })),
+      placement_test: plan.placement_test
+        .filter((q) => units.some((u) => u.unit_id === q.unit_id))
+        .map((q) => ({
+          unit_id: `unit-${units.findIndex((u) => u.unit_id === q.unit_id) + 1}`,
+          concept: q.concept,
+          prompt: q.prompt,
+          options: q.options,
+          correct_index: q.correct_index,
+          explanation: q.explanation,
+          source_quote: q.source_quote,
+        })),
+    };
+  }
+
+  it("takes a short input as the name of a subject and builds the plan from notes the model writes", async () => {
+    callModel.mockResolvedValueOnce(reply(modelTopic()));
+    const out = await setupCourse("PMP exam", null);
+    if (isAiError(out)) throw new Error(out.detail);
+
+    expect(out.source).toBe("topic");
+    expect(out.title).toBe("PMP exam prep");
+    expect(out.units).toHaveLength(5);
+    out.units.forEach((u, i) => expect(flat(u.excerpt)).toBe(flat(plan.units[i].excerpt)));
+    expect(out.placement_test.length).toBeGreaterThan(0);
+    expect(parseCoursePlan(out).ok).toBe(true);
+    const parsed = parseCoursePlan(out);
+    expect(parsed.ok && parsed.plan.source).toBe("topic"); // the app's guard keeps the mark
+
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(userText(0)).toContain("<subject>\nPMP exam\n</subject>");
+    expect(userText(0)).not.toContain("<material>");
+  });
+
+  it("marks a plan cut from the learner's own text as theirs", async () => {
+    callModel.mockResolvedValueOnce(reply(modelPlan()));
+    const out = await setupCourse(material, null);
+    expect(!isAiError(out) && out.source).toBeUndefined();
+  });
+
+  it("says so when a short input names nothing to study, without a second call", async () => {
+    callModel.mockResolvedValueOnce(reply({ subject_found: false, title: "", units: [], placement_test: [] }));
+    const out = await setupCourse("asdfgh qwerty", null);
+    expect(out).toMatchObject({ error: expect.stringContaining("could not tell what you want to study") });
+    expect(callModel).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an input of one or two characters without calling the model", async () => {
+    const out = await setupCourse(" ab ", null);
+    expect(out).toMatchObject({ error: expect.stringContaining("Type what you are studying") });
     expect(callModel).not.toHaveBeenCalled();
   });
 });

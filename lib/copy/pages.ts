@@ -53,9 +53,9 @@ const thousands = (n: number) => n.toLocaleString("en-US");
 export const uploadCopy = {
   title: "Your course",
   heading: "Use your own course",
-  intro: "Paste the text of your course: your notes, a study guide or a few chapters. We split it into topics and build your plan from it.",
+  intro: "Paste the text of your course: your notes, a study guide or a few chapters. We split it into topics and build your plan from it. No text at hand? Type what you are studying, such as “PMP exam”, and we write study notes for it.",
   fieldLabel: "Your course text",
-  placeholder: "Paste your course text here",
+  placeholder: "Paste your course text, or type what you are studying",
   counter: (n: number, max: number) => `${thousands(n)} of ${thousands(max)} characters`,
   chooseFile: "Choose a .txt or .md file",
   fileHelp: "PDF files are not supported yet. Open the PDF, copy the text and paste it here.",
@@ -66,7 +66,7 @@ export const uploadCopy = {
   fileEmpty: "That file is empty. Choose another file, or paste the text.",
   caution: "Leave out anything confidential. The text is sent to an AI model, and the parts used in your plan are stored with it.",
   // Also returned by POST /api/course (400 too_short, 413 too_long).
-  tooShort: "Paste more of your course: at least 900 characters, about half a page.",
+  tooShort: "Type what you are studying, such as “PMP exam”, or paste the text of your course.",
   tooLong: "That is more text than we can handle in one go. Paste up to about 10,000 words.",
   submit: "Build my plan",
   waitingTitle: "Building your plan…",

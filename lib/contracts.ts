@@ -58,6 +58,7 @@ const coursePlanSchema = z.object({
     )
     .min(1),
   placement_test: z.array(questionSchema.extend({ unit_id: z.string().min(1) })).min(1),
+  source: z.enum(["course", "topic"]).optional(),
 });
 
 export const answersSchema = z.record(z.string().max(100), z.number().int().min(-1).max(9));

@@ -50,6 +50,12 @@ export interface CoursePlan {
   title: string;
   units: Unit[];
   placement_test: PlacementQuestion[];
+  /**
+   * Where the passages come from. "course": cut word for word from the text the learner gave.
+   * "topic": the learner only named a subject, so the passages are study notes written by the model.
+   * Absent means "course". The pages must say which it is wherever a passage is quoted.
+   */
+  source?: "course" | "topic";
 }
 
 export type Mode = "new" | "review" | "catch_up";

@@ -7,7 +7,7 @@ Built in 24 hours for Business Cup 2.0 (Nazarbayev University) by Team 7292.
 ## What you can do in it
 
 1. **Open it.** There is no sign-up. The app gives you an ID that keeps your progress; typing the same ID on another device continues where you stopped.
-2. **Pick a course.** Start with the sample course (PMP exam prep, 9 topics), or paste the text of your own course (900 to 60,000 characters, or a `.txt` / `.md` file; PDF is not supported).
+2. **Pick a course.** Start with the sample course (PMP exam prep, 9 topics), or paste the text of your own course (up to 60,000 characters, or a `.txt` / `.md` file; PDF is not supported). With no text at hand, a few words naming the subject are enough: the app then writes study notes for it and says that they were written by AI.
 3. **Set up.** Eight questions (goal, minutes a day, study days, exam date and so on) and a short check (up to 5 questions) that marks the topics you already know.
 4. **Study.** Each study day you say how much time you have (10 to 30 minutes) and get a lesson of that length with a 3-question quiz. Every section shows the quote from your course it is built on.
 5. **See it adapt.** A question you miss comes back as a review question on a later day. A failed quiz repeats the topic in a different way. A missed study day gives a shorter catch-up lesson. The line above each lesson says why you got that lesson.

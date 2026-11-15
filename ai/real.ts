@@ -52,20 +52,28 @@ const LESSON_FIRST_TRY_MS = 40_000;
 const CHAT_FIRST_TRY_MS = 15_000;
 /** A second try is not started with less time than this left. */
 const MIN_RETRY_MS = 8_000;
-/** Two lessons cannot be cut from less text than this. The upload route asks for the same (lib/upload.ts), so learners meet that limit first. */
+/**
+ * A text at least this long is taught from as it stands. A shorter one is taken as the name of a subject,
+ * and the model writes the study notes (COURSE_TEXT_MIN_CHARS in lib/upload.ts is the same number).
+ */
 const MIN_MATERIAL_CHARS = 900;
+/** The shortest input that can name a subject. */
+const MIN_SUBJECT_CHARS = 3;
+/** A plan built from a subject alone has this many units. */
+const TOPIC_PLAN_SIZE = { units: 5, placement_questions: 5 };
 const MAX_HISTORY_TURNS = 12;
 
 const SORRY = {
   setup: "We could not build a study plan from this material. Please try again.",
-  short: "This text is too short to build a plan from. Paste at least half a page of your course.",
+  short: "Type what you are studying, or paste the text of your course.",
+  subject: "We could not tell what you want to study. Name the course or exam, for example “PMP exam” or “food safety manager certification”.",
   lesson: "The lesson could not be written. Please try again.",
   chat: "The chat could not answer just now. Please try again.",
 };
 
 const prompts = new Map<string, string>();
 
-async function prompt(name: "setup" | "lesson" | "side-chat"): Promise<string> {
+async function prompt(name: "setup" | "topic" | "lesson" | "side-chat"): Promise<string> {
   const cached = prompts.get(name);
   if (cached) return cached;
   const text = (await readFile(path.join(process.cwd(), "prompts", `${name}.md`), "utf8")).trim();
@@ -95,6 +103,22 @@ const planOut = z.object({
       objective: z.string(),
       start_quote: z.string().describe("First 6 to 12 words of the unit's passage, copied exactly from the material"),
       end_quote: z.string().describe("Last 6 to 12 words of the unit's passage, copied exactly from the material"),
+      prerequisites: z.array(z.string()),
+    }),
+  ),
+  placement_test: z.array(questionOut.extend({ unit_id: z.string() })),
+});
+
+/** What the setup call returns when the learner named a subject and gave no course text: the model writes each unit's passage. */
+const topicOut = z.object({
+  subject_found: z.boolean().describe("False when the text names nothing a person could study"),
+  title: z.string(),
+  units: z.array(
+    z.object({
+      unit_id: z.string(),
+      title: z.string(),
+      objective: z.string(),
+      passage: z.string().describe("Study notes for this unit: 150 to 220 words of plain full sentences"),
       prerequisites: z.array(z.string()),
     }),
   ),
@@ -262,10 +286,35 @@ function planFrom(raw: unknown, material: string, profile: Profile | null): Acce
   return check.ok ? { ok: true, value: plan } : { ok: false, errors: check.errors };
 }
 
+/**
+ * A plan from a subject alone. The model wrote each unit's passage, so the passages joined together are
+ * the material, and the plan then goes through the same cutting, repair and checks as a plan from a course
+ * text. The result is marked `source: "topic"` so the pages can say the notes were written by AI.
+ * A null value means the text named nothing to study.
+ */
+function topicPlanFrom(raw: unknown, profile: Profile | null): Accepted<CoursePlan | null> {
+  const parsed = topicOut.safeParse(raw);
+  if (!parsed.success) return { ok: false, errors: schemaErrors(parsed.error) };
+  const out = parsed.data;
+  if (!out.subject_found) return { ok: true, value: null };
+  const passages = out.units.map((u) => u.passage.replace(/\s+/g, " ").trim());
+  const marked = {
+    title: out.title,
+    units: out.units.map((u, i) => {
+      const words = passages[i].split(" ");
+      return { unit_id: u.unit_id, title: u.title, objective: u.objective, start_quote: words.slice(0, 8).join(" "), end_quote: words.slice(-8).join(" "), prerequisites: u.prerequisites };
+    }),
+    placement_test: out.placement_test,
+  };
+  const built = planFrom(marked, passages.join("\n\n"), profile);
+  if (!built.ok) return built;
+  return { ok: true, value: { ...built.value, title: profile?.course_title.trim() || out.title.trim() || built.value.title, source: "topic" } };
+}
+
 export async function setupCourse(materialText: string, profile: Profile | null): Promise<CoursePlan | AiError> {
   try {
     const material = materialText.replace(/\r\n?/g, "\n").normalize("NFC").trim();
-    if (material.length < MIN_MATERIAL_CHARS) return { error: SORRY.short, detail: `material has ${material.length} characters` };
+    if (material.length < MIN_SUBJECT_CHARS) return { error: SORRY.short, detail: `the input has ${material.length} characters` };
     const learner = profile && {
       course_title: profile.course_title,
       goal: profile.goal,
@@ -273,6 +322,22 @@ export async function setupCourse(materialText: string, profile: Profile | null)
       skip: profile.skip,
       prior_knowledge: profile.prior_knowledge,
     };
+    if (material.length < MIN_MATERIAL_CHARS) {
+      // Too short to be a course text: the learner named a subject. The model writes the notes and the plan in one call.
+      const plan = await checked<CoursePlan | null>({
+        call: "setup",
+        model: model("SETUP_MODEL", "claude-haiku-5-5"),
+        effort: effort("SETUP_EFFORT", "low"),
+        system: await prompt("topic"),
+        user: `<profile>\n${JSON.stringify(learner, null, 2)}\n</profile>\n\n<plan_size>\n${JSON.stringify(TOPIC_PLAN_SIZE)}\n</plan_size>\n\n<subject>\n${material}\n</subject>`,
+        schema: topicOut,
+        maxTokens: 12_000,
+        budgetMs: BUDGET_MS.setup,
+        accept: (raw) => topicPlanFrom(raw, profile),
+        sorry: SORRY.setup,
+      });
+      return plan ?? { error: SORRY.subject, detail: "the text names nothing to study" };
+    }
     return await checked<CoursePlan>({
       call: "setup",
       model: model("SETUP_MODEL", "claude-haiku-5-5"),
