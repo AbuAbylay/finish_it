@@ -80,8 +80,13 @@ function detached(command, args, logName) {
   return child.pid;
 }
 
+/** Process ids listening on PORT. On Linux `ss` answers at once; `lsof` can hang on a busy shared machine, so it gets a time limit. */
 function listeners() {
-  const out = spawnSync("lsof", ["-ti", `tcp:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8" }).stdout ?? "";
+  if (process.platform === "linux") {
+    const ss = spawnSync("ss", ["-H", "-ltnp", `sport = :${PORT}`], { encoding: "utf8", timeout: 5000 });
+    if (ss.status === 0) return [...new Set([...(ss.stdout ?? "").matchAll(/pid=(\d+)/g)].map((m) => Number(m[1])))];
+  }
+  const out = spawnSync("lsof", ["-ti", `tcp:${PORT}`, "-sTCP:LISTEN"], { encoding: "utf8", timeout: 10_000 }).stdout ?? "";
   return out.split("\n").map((s) => Number(s.trim())).filter((n) => n > 0);
 }
 
