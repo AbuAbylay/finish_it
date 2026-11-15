@@ -322,7 +322,7 @@ describe("writeLesson", () => {
     expect(isAiError(lesson)).toBe(false);
     expect(callModel).toHaveBeenCalledTimes(2);
     expect(userText(0)).not.toContain("rejected");
-    expect(userText(1)).toContain("quiz needs exactly 3 questions, has 2");
+    expect(userText(1)).toContain("quiz needs 3 to 5 questions, has 2");
   });
 
   it("returns an error object after the second failed try, and never throws", async () => {
