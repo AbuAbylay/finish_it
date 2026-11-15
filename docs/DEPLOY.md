@@ -29,7 +29,7 @@ node scripts/e2e.mjs https://<your-app>    # full juror path; spends 3 lesson ge
 
 `"ai": "stub"` means `ANTHROPIC_API_KEY` is missing in that environment: set it and redeploy. With the key set, each model call writes one line to the function log (`ai lesson: model=… input_tokens=… output_tokens=… ms=…`), and a failed call logs its reason (`writeLesson failed: …`).
 
-Then open `https://<your-app>/` in a private window. It should go to `/enter`, and "Try it with a sample PMP course" should reach a lesson in under two minutes. "Use my own course" takes pasted text (1,500 to 60,000 characters) through the setup call, which can take up to a minute.
+Then open `https://<your-app>/` in a private window. It should go to `/enter`, and "Try it with a sample PMP course" should reach a lesson in under two minutes. "Use my own course" takes pasted text (900 to 60,000 characters) through the setup call, which can take up to a minute.
 
 Keys live only in Vercel environment variables. `.env*` is git-ignored; never commit one.
 

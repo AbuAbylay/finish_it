@@ -12,7 +12,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/ai/client", () => ({ callModel, FINAL_FAILURES: ["no_key", "auth", "bad_request", "refusal"] }));
 
 import { setupCourse, sideChat, writeLesson } from "@/ai/real";
-import { cutExcerpt, flat, questionErrors, snapQuote, trimToWords, validateLesson, validatePlan, wordBudget } from "@/ai/validate";
+import { cutExcerpt, flat, planSize, questionErrors, snapQuote, trimToWords, validateLesson, validatePlan, wordBudget } from "@/ai/validate";
 
 const root = path.resolve(__dirname, "..");
 const material = readFileSync(path.join(root, "sample/course.txt"), "utf8");
@@ -113,12 +113,19 @@ describe("validator: course plan", () => {
     expect(result.errors).toEqual(["p02: source_quote is not word for word in its excerpt"]);
   });
 
-  it("requires 6 to 10 units and 5 questions on 5 different units", () => {
+  it("requires 2 to 12 units and 1 to 5 questions on different units", () => {
     const few = clone(plan);
-    few.units = few.units.slice(0, 5);
-    few.placement_test = few.placement_test.filter((q) => few.units.some((u) => u.unit_id === q.unit_id));
-    expect(validatePlan(few, material).errors.join("\n")).toMatch(/needs 6 to 10 units, has 5/);
-    expect(validatePlan(few, material).errors.join("\n")).toMatch(/needs 5 questions/);
+    few.units = few.units.slice(0, 1);
+    few.placement_test = [];
+    expect(validatePlan(few, material).errors.join("\n")).toMatch(/needs 2 to 12 units, has 1/);
+    expect(validatePlan(few, material).errors.join("\n")).toMatch(/needs 1 to 5 questions, has 0/);
+
+    // A short text gives a short plan: two units and two questions are a valid plan.
+    const short = clone(plan);
+    short.units = short.units.slice(0, 2);
+    short.placement_test = short.placement_test.filter((q) => short.units.some((u) => u.unit_id === q.unit_id));
+    expect(short.placement_test.length).toBeGreaterThan(0);
+    expect(validatePlan(short, material)).toEqual({ ok: true, errors: [] });
 
     const same = clone(plan);
     same.placement_test[1].unit_id = same.placement_test[0].unit_id;
@@ -174,14 +181,14 @@ describe("validator: lesson", () => {
 
   it.each([
     ["another unit's id", (l: Lesson) => void (l.unit_id = "u99"), "unit_id must be"],
-    ["two quiz questions", (l: Lesson) => void l.quiz.pop(), "quiz needs exactly 3 questions, has 2"],
+    ["two quiz questions", (l: Lesson) => void l.quiz.pop(), "quiz needs 3 to 5 questions, has 2"],
     ["no review question", (l: Lesson) => void (l.review_quiz = []), "one question per review concept (1), has 0"],
     ["a renamed review concept", (l: Lesson) => void (l.review_quiz[0].concept = "something else"), 'concept must be "project vs operations"'],
     ["a section quote that is not in the excerpt", (l: Lesson) => void (l.sections[1].source_quote = "Not in the course at all."), "sections[1]: source_quote is not word for word"],
     ["a review quote taken from the wrong excerpt", (l: Lesson) => void (l.review_quiz[0].source_quote = sentencesOf(unit.excerpt)[4]), "review_quiz[0]: source_quote is not word for word"],
-    ["five sections", (l: Lesson) => void (l.sections = Array(5).fill(l.sections[0])), "1 to 4 sections"],
+    ["seven sections", (l: Lesson) => void (l.sections = Array(7).fill(l.sections[0])), "1 to 6 sections"],
     ["four key points", (l: Lesson) => void (l.key_points = ["a", "b", "c", "d"]), "at most 3"],
-    ["more words than the session allows", (l: Lesson) => void (l.sections[0].body_md = "word ".repeat(700)), "the limit for 15 minutes is 660"],
+    ["more words than the session allows", (l: Lesson) => void (l.sections[0].body_md = "word ".repeat(1000)), "the limit for 15 minutes is 960"],
   ])("rejects %s", (_name, breakIt, message) => {
     const l = lesson();
     breakIt(l);
@@ -190,12 +197,27 @@ describe("validator: lesson", () => {
     expect(result.errors.join("\n")).toContain(message);
   });
 
-  it("sizes a lesson from its minutes: (minutes - 4) x 30 words to aim for, x 60 at most", () => {
-    expect(wordBudget(10)).toEqual({ target: 180, max: 360, sections: 2 });
-    expect(wordBudget(15)).toEqual({ target: 330, max: 660, sections: 3 });
-    expect(wordBudget(20)).toEqual({ target: 480, max: 960, sections: 3 });
-    expect(wordBudget(30)).toEqual({ target: 780, max: 1560, sections: 4 });
-    expect(wordBudget(5).max).toBe(240); // never a budget too small to write a lesson in
+  it("sizes a lesson from its minutes: more time adds parts and questions, not only words", () => {
+    expect(wordBudget(10)).toEqual({ target: 340, max: 680, sections: 3, parts: ["idea", "worked_example", "trap"], quiz: 3 });
+    expect(wordBudget(15)).toEqual({ target: 480, max: 960, sections: 4, parts: ["idea", "worked_example", "trap", "harder_case"], quiz: 4 });
+    expect(wordBudget(20)).toEqual({ target: 620, max: 1240, sections: 5, parts: ["idea", "worked_example", "trap", "harder_case", "use_it"], quiz: 5 });
+    expect(wordBudget(12)).toMatchObject({ sections: 3, quiz: 3 }); // each half of a 25-minute session
+    expect(wordBudget(5).max).toBe(680); // never a budget too small to write a lesson in
+  });
+
+  it("accepts a quiz of 3 to 5 questions and a lesson of up to 6 sections", () => {
+    const l = lesson();
+    l.quiz.push({ ...l.quiz[0], question_id: "q3" }, { ...l.quiz[1], question_id: "q4" });
+    l.sections = [...l.sections, ...l.sections, ...l.sections];
+    expect(validateLesson(l, order)).toEqual({ ok: true, errors: [] });
+  });
+
+  it("sizes a plan from the length of the text: one unit per 350 words, 2 to 10", () => {
+    expect(planSize(150)).toEqual({ units: 2, placement_questions: 2 });
+    expect(planSize(477)).toEqual({ units: 2, placement_questions: 2 });
+    expect(planSize(1400)).toEqual({ units: 4, placement_questions: 4 });
+    expect(planSize(2950)).toEqual({ units: 8, placement_questions: 5 });
+    expect(planSize(10_000)).toEqual({ units: 10, placement_questions: 5 });
   });
 });
 
@@ -263,7 +285,8 @@ describe("writeLesson", () => {
     expect(request).toMatchObject({ call: "lesson", model: "claude-sonnet-5-5", effort: "medium" });
     expect(request.timeoutMs).toBeLessThanOrEqual(50_000);
     const sent = JSON.parse(userText(0).replace(/<\/?order>/g, ""));
-    expect(sent).toMatchObject({ mode: "new", minutes: 15, target_words: 330, max_words: 660, sections: 3 });
+    expect(sent).toMatchObject({ mode: "new", minutes: 15, target_words: 480, max_words: 960, sections: 4, quiz_questions: 4 });
+    expect(sent.parts).toEqual(["idea", "worked_example", "trap", "harder_case"]);
     expect(sent.unit.excerpt).toBe(unit.excerpt);
     expect(sent).not.toHaveProperty("why");
   });
@@ -401,13 +424,51 @@ describe("setupCourse", () => {
     expect(userText(0)).not.toContain("private note");
   });
 
-  it("tries again when a passage cannot be found, then gives up with an error object", async () => {
+  it("repairs a plan when one passage's marks were miscopied, without a second call", async () => {
     const bad = modelPlan();
     bad.units[4].start_quote = "Words that are nowhere in this course material";
+    bad.units[6].end_quote = "an ending that the course never had at all";
+    callModel.mockResolvedValueOnce(reply(bad));
+    const out = await setupCourse(material, null);
+    if (isAiError(out)) throw new Error(out.detail);
+
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(out.units).toHaveLength(plan.units.length);
+    // The unit with no start begins where the one before it ends; the unit with no end runs to the next start.
+    expect(flat(out.units[4].excerpt)).toContain(flat(plan.units[4].excerpt).slice(-200));
+    expect(flat(out.units[6].excerpt)).toContain(flat(plan.units[6].excerpt).slice(0, 200));
+    out.units.forEach((u) => expect(flat(material)).toContain(flat(u.excerpt)));
+    expect(validatePlan(out, material).ok).toBe(true);
+    expect(parseCoursePlan(out).ok).toBe(true);
+  });
+
+  it("leaves out a flawed placement question and keeps the plan", async () => {
+    const bad = modelPlan();
+    bad.placement_test[1].source_quote = "A sentence the course never contained, written by a model.";
+    bad.placement_test[3].options = ["only", "three", "options"];
+    callModel.mockResolvedValueOnce(reply(bad));
+    const out = await setupCourse(material, null);
+    if (isAiError(out)) throw new Error(out.detail);
+
+    expect(callModel).toHaveBeenCalledTimes(1);
+    expect(out.placement_test.map((q) => q.question_id)).toEqual(["p01", "p02", "p03"]);
+    expect(out.placement_test.map((q) => q.unit_id)).toEqual([0, 2, 4].map((i) => plan.placement_test[i].unit_id));
+    expect(validatePlan(out, material).ok).toBe(true);
+  });
+
+  it("tells the model how many units and questions to write, from the length of the text", async () => {
+    callModel.mockResolvedValueOnce(reply(modelPlan()));
+    await setupCourse(material, null);
+    const size = JSON.parse(userText(0).split("<plan_size>")[1].split("</plan_size>")[0]);
+    expect(size).toEqual(planSize(material.trim().split(/\s+/).length));
+  });
+
+  it("tries again when too few passages can be found, then gives up with an error object", async () => {
+    const bad = modelPlan();
+    bad.units.forEach((u) => (u.start_quote = "Words that are nowhere in this course material"));
     callModel.mockResolvedValueOnce(reply(bad)).mockResolvedValueOnce(reply(modelPlan()));
     expect(isAiError(await setupCourse(material, null))).toBe(false);
-    expect(userText(1)).toContain("u05");
-    expect(userText(1)).toContain("start_quote is not in the material");
+    expect(userText(1)).toContain("only 0 of the 9 passages could be found");
 
     callModel.mockReset();
     callModel.mockResolvedValue(reply(bad));

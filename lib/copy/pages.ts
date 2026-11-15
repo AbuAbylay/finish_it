@@ -8,17 +8,17 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export const enterCopy = {
   headline: "You paid for the course. Let's finish it.",
   subhead:
-    "Finish-it coach turns your course into a 15-minute daily plan that adapts to what you get wrong and gets you to your exam date.",
+    "Finish-it coach turns your course into a daily plan sized to your time. It adapts to what you get wrong and gets you to your exam date.",
   primary: "Try it with a sample PMP course",
   creating: "Creating your ID…",
   // COPY.md said "Your progress stays in this browser"; with IDs that is no longer true.
   underButton: "No sign-up. About 2 minutes to your first lesson. Your ID keeps your progress.",
   steps: [
     { lead: "Answer 8 quick questions.", rest: "Your exam date, your time, what gets in the way." },
-    { lead: "Take a 5-question check.", rest: "We skip what you already know." },
+    { lead: "Take a short check.", rest: "We skip what you already know." },
     {
       lead: "Get today's lesson.",
-      rest: "15 minutes, from your course, with a short quiz. Miss a question and tomorrow's lesson goes back over it.",
+      rest: "10 to 30 minutes, from your course, with practice questions. Miss one and tomorrow's lesson goes back over it.",
     },
   ],
   // not in COPY.md: the ID step
@@ -66,7 +66,7 @@ export const uploadCopy = {
   fileEmpty: "That file is empty. Choose another file, or paste the text.",
   caution: "Leave out anything confidential. The text is sent to an AI model, and the parts used in your plan are stored with it.",
   // Also returned by POST /api/course (400 too_short, 413 too_long).
-  tooShort: "Paste more of your course: at least 1,500 characters, about one page.",
+  tooShort: "Paste more of your course: at least 900 characters, about half a page.",
   tooLong: "That is more text than we can handle in one go. Paste up to about 10,000 words.",
   submit: "Build my plan",
   waitingTitle: "Building your plan…",
@@ -146,7 +146,7 @@ export const lessonsCopy = {
 
 export const lessonCopy = {
   title: "Today's lesson",
-  writing: "Writing today's lesson from your course… usually 10–20 seconds.",
+  writing: "Writing today's lesson from your course… usually 15–25 seconds.",
   fromCourse: "From your course",
   keyPoints: "Remember this",
   readDone: "I've read it. Check me.",

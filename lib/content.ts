@@ -14,7 +14,7 @@ export const copy = {
     fillingExample: "Filling in…",
     back: "Back",
     next: "Next",
-    finish: "Start my 5-question check",
+    finish: "Start my short check",
     saving: "Saving your plan…",
     pickOne: "Pick one to continue.",
     q1: {

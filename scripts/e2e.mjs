@@ -123,7 +123,7 @@ async function run() {
   const l1 = (await call("GET", "/api/lesson")).data;
   check(`lesson returned (${Date.now() - t0} ms)`, !!l1.lesson && l1.lesson.unit_id === firstOpen, l1);
   check("the lesson is sized to today's choice", l1.order?.minutes === 20, l1.order);
-  check("mode 'new', why line, 3 quiz questions, a source quote per section", l1.order?.mode === "new" && l1.order.why && l1.lesson.quiz.length === 3 && l1.lesson.sections.every((s) => s.source_quote), l1.order);
+  check("mode 'new', why line, 3 to 5 quiz questions, a source quote per section", l1.order?.mode === "new" && l1.order.why && l1.lesson.quiz.length >= 3 && l1.lesson.quiz.length <= 5 && l1.lesson.sections.every((s) => s.source_quote), l1.order);
   check("no answers leak before checking", !leaks([...l1.lesson.quiz, ...l1.lesson.review_quiz]));
   check("refresh returns the same cached lesson", (await call("GET", "/api/lesson")).data.lesson_key === l1.lesson_key);
   const firstQ = l1.lesson.quiz[0];

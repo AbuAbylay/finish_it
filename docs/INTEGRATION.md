@@ -57,17 +57,17 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult;
 - The setup call does not retype excerpts. It names each unit's passage by its first and last words (`start_quote`, `end_quote`) and code cuts the passage out of the material, so every excerpt is a verbatim span by construction. A passage longer than 600 words is cut back on a paragraph or sentence.
 - Code sets `unit_id`, all `question_id` values (`u04-q1`, `u04-r1`, `p01`) and each review question's `concept` (the exact name from the order).
 - A `source_quote` is replaced by the exact words of the excerpt when they can be found there, whatever the model did to case, spacing or quote marks.
-- The lesson length is sent as numbers derived from `order.minutes`: about `(minutes - 4) x 30` words to aim for, `(minutes - 4) x 60` at most, and 2 to 4 sections. `Order` itself carries no extra fields. `order.why` is not sent; code wrote it for the page.
+- The lesson's shape is set by code from `order.minutes` (`wordBudget` in `ai/validate.ts`) and sent with the order: under 13 minutes it is 3 parts (idea, worked example, trap), about 340 words and 3 questions; from 13 minutes a harder case is added, about 480 words and 4 questions; from 18 minutes steps to use it this week, about 620 words and 5 questions. More time buys more practice, not only more reading. `Order` itself carries no extra fields. `order.why` is not sent; code wrote it for the page.
 
 **Validator** (`ai/validate.ts`, run on every reply before the app sees it).
 
 | Check | On failure |
 |---|---|
-| Plan: 6 to 10 units, unique ids, each excerpt a word-for-word span of the material | Retry once |
+| Plan: 2 to 12 units, unique ids, each excerpt a word-for-word span of the material. Code sets the number asked for from the length of the text (`planSize`), re-cuts a passage whose marks were miscopied from its neighbours, and leaves out a unit or placement question that cannot be repaired | Retry once, only when fewer than 2 units or no placement question can be used |
 | Plan: 5 placement questions on 5 different units | Retry once |
 | Lesson: 1 to 4 sections; total words within the limit for `minutes` | Retry once |
 | Lesson: a section's `source_quote` is in the unit excerpt | That section is dropped; at least one must remain |
-| Lesson: exactly 3 `quiz` questions; one `review_quiz` question per review concept | Retry once |
+| Lesson: 3 to 5 `quiz` questions; one `review_quiz` question per review concept | Retry once |
 | Question: 4 distinct options, `correct_index` 0 to 3, `source_quote` in its own excerpt | Retry once |
 | Question: the correct option does not stand out by length (0.5 to 1.5 times the mean of the other three; skipped when every option is under 20 characters) | Retry once |
 
@@ -83,8 +83,8 @@ Quotes are compared after NFKC normalisation, in lower case, with one style of q
 
 - **Orders come from code.** `writeLesson` receives an `Order` built by `pickNext` (`lib/rules.ts`).
 - **Session length.** `order.minutes` is the length of one lesson. It comes from today's choice (`POST /api/session { minutes }`, or `GET /api/lesson?minutes=NN`; the first choice of a day stands), else from the survey, kept within 10 to 30. From 25 minutes a session is two lessons of half the time each. A catch-up lesson is 10 minutes.
-- **Own course.** `POST /api/course { source: "upload", text }` takes 1,500 to 60,000 characters and calls `setupCourse`. The survey comes after the upload, so the profile is normally `null` at that point.
-- **Second guard.** The app re-checks every output against the §4 shapes (`lib/contracts.ts`): 4 options, `correct_index` 0 to 3, unique question ids, at least one section, exactly 3 quiz questions. A mismatch is treated like an `AiError`.
+- **Own course.** `POST /api/course { source: "upload", text }` takes 900 to 60,000 characters and calls `setupCourse`. The survey comes after the upload, so the profile is normally `null` at that point.
+- **Second guard.** The app re-checks every output against the §4 shapes (`lib/contracts.ts`): 4 options, `correct_index` 0 to 3, unique question ids, at least one section, 3 to 5 quiz questions. A mismatch is treated like an `AiError`.
 - **Answers stay hidden.** The browser gets questions without `correct_index`, `explanation` or `source_quote`. Each answer is revealed only after that question is answered, through `POST /api/answers/check`.
 - **Caching.** One lesson per learner, plan, unit, mode, minutes, review concepts and attempt number. A refresh never calls the model again, and an unfinished lesson is resumed whatever session length is chosen later.
 - **Cost caps** over a rolling 24 hours (environment variables, defaults): `LESSON_CAP_PER_LEARNER=25`, `LESSON_CAP_PER_IP=600`, `LESSON_CAP_GLOBAL=1000`. They count lesson, setup and chat calls. A call that returns an `AiError` counts only toward the global cap, so a failing model cannot lock one learner or one network out for the day. Failed calls are instead held to 8 per learner and 60 per network in any ten minutes. The global cap bounds total spend.
@@ -127,7 +127,7 @@ With a key in `.env.local`, the same contract test runs against the real calls (
 AI_CONTRACT_LIVE=1 node --env-file=.env.local node_modules/vitest/vitest.mjs run tests/ai-contract.test.ts
 ```
 
-The contract test checks the §4 shapes, 6 to 10 units with verbatim excerpts, 5 placement questions on 5 units, 3 quiz questions, one review question per review concept, 4 options, `correct_index` 0 to 3, the option length rule, every `source_quote` inside its excerpt, and that the browser view carries no answer key.
+The contract test checks the §4 shapes, 2 to 12 units with verbatim excerpts, 1 to 5 placement questions on different units, 3 to 5 quiz questions, one review question per review concept, 4 options, `correct_index` 0 to 3, the option length rule, every `source_quote` inside its excerpt, and that the browser view carries no answer key.
 
 To check saved model runs without calling the models, drop JSON files into `tests/fixtures/ai/`:
 
