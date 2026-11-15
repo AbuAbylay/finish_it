@@ -27,7 +27,7 @@ export const POST = route(async (req) => {
   const record = ctx.record ?? newRecord(ctx.learnerId);
 
   if (record.course_plan_id && record.sessions.length > 0) {
-    return json({ course_plan_id: record.course_plan_id, title: ctx.plan?.title ?? "", units: ctx.plan ? topics(ctx.plan) : [], kept: true });
+    return json({ course_plan_id: record.course_plan_id, title: ctx.plan?.title ?? "", source: ctx.plan?.source ?? null, units: ctx.plan ? topics(ctx.plan) : [], kept: true });
   }
 
   let id: string;
@@ -61,5 +61,5 @@ export const POST = route(async (req) => {
   } else {
     throw new HttpError(400, 'source must be "sample" or "upload".', "bad_source");
   }
-  return json({ course_plan_id: id, title: plan.title, units: topics(plan), kept: false });
+  return json({ course_plan_id: id, title: plan.title, source: plan.source ?? null, units: topics(plan), kept: false });
 });

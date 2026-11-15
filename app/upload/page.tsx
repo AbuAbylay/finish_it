@@ -9,13 +9,14 @@ import { Icon } from "@/components/icons";
 import { Button, Card, ErrorCard, Spinner } from "@/components/ui";
 import { STAGE_HOME, useGate } from "@/components/useGate";
 import { api, clearDraft, type ApiResult } from "@/lib/client";
-import { enterCopy, uploadCopy as c } from "@/lib/copy/pages";
-import { PDF_MAX_BYTES, UPLOAD_MAX_CHARS, UPLOAD_MIN_CHARS } from "@/lib/upload";
+import { enterCopy, sourceCopy, uploadCopy as c, type CourseSource } from "@/lib/copy/pages";
+import { COURSE_TEXT_MIN_CHARS, PDF_MAX_BYTES, UPLOAD_MAX_CHARS, UPLOAD_MIN_CHARS } from "@/lib/upload";
 
 /** POST /api/course */
 interface CourseResponse {
   course_plan_id: string;
   title: string;
+  source: CourseSource;
   units: { unit_id: string; title: string }[];
   /** True when the learner already has lessons, so their course was left as it is. */
   kept: boolean;
@@ -35,7 +36,7 @@ export default function UploadPage() {
   const { me, error: gateError, reload } = useGate(["start", "survey"]);
   const [phase, setPhase] = useState<Phase>("edit");
   const [text, setText] = useState("");
-  const [built, setBuilt] = useState<Pick<CourseResponse, "title" | "units"> | null>(null);
+  const [built, setBuilt] = useState<Pick<CourseResponse, "title" | "units" | "source"> | null>(null);
   /** Whether the sample course is the one attached to this learner right now. */
   const [hasSample, setHasSample] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export default function UploadPage() {
     seeded.current = true;
     setHasSample(me.sample !== null);
     if (me.course && me.sample === null) {
-      setBuilt({ title: me.course.title, units: me.course.units });
+      setBuilt({ title: me.course.title, units: me.course.units, source: me.course.source });
       setPhase("built");
     }
   }, [me]);
@@ -122,7 +123,7 @@ export default function UploadPage() {
     clearDraft("survey");
     if (res.data.kept) return router.replace(STAGE_HOME.lesson);
     setHasSample(false);
-    setBuilt({ title: res.data.title, units: res.data.units });
+    setBuilt({ title: res.data.title, units: res.data.units, source: res.data.source });
     setPhase("built");
   }
 
@@ -199,7 +200,7 @@ export default function UploadPage() {
               <h1 ref={builtRef} tabIndex={-1} className="text-h1 text-ink outline-none">
                 {c.doneTitle(built.units.length)}
               </h1>
-              <p className="text-body text-ink-muted">{c.doneFrom(built.title)}</p>
+              <p className="text-body text-ink-muted">{sourceCopy(built.source).builtFrom(built.title)}</p>
             </div>
             <ol className="space-y-2">
               {built.units.map((u, i) => (
@@ -228,7 +229,7 @@ export default function UploadPage() {
               <span className="size-5 shrink-0 animate-spin rounded-full border-2 border-line border-t-ink" aria-hidden />
               <h1 className="text-h2 text-ink">{c.waitingTitle}</h1>
             </div>
-            <p className="text-body text-ink-muted">{c.waitingLine}</p>
+            <p className="text-body text-ink-muted">{length < COURSE_TEXT_MIN_CHARS ? c.waitingLineTopic : c.waitingLine}</p>
             <p className="text-small text-ink-muted" aria-hidden>
               {c.waitingElapsed(seconds)}
             </p>

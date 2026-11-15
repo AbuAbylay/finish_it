@@ -13,7 +13,7 @@ import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse } from "@/lib/api-types";
 import { api } from "@/lib/client";
 import { copy } from "@/lib/content";
-import { homeCopy as h, paceSentence, todayButton } from "@/lib/copy/pages";
+import { homeCopy as h, paceSentence, sourceCopy, todayButton } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
 const primaryLink =
@@ -117,6 +117,7 @@ export default function Home() {
             <BandCard band="sand" icon="plan" labelledBy="course-title" title={h.myCourse}>
               <div className="space-y-1">
                 <p className="text-h3 text-ink">{plan.course_title}</p>
+                {me?.course?.source === "topic" && <p className="text-small text-ink-muted">{sourceCopy("topic").note}</p>}
                 <p className="text-small text-ink-muted">{h.examOn(shortDate(plan.deadline))}</p>
               </div>
               <div className="space-y-2">

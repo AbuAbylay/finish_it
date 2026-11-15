@@ -99,15 +99,24 @@ describe("session length over the API", () => {
     expect(plan.data.lesson_minutes).toBe(20); // the usual lesson length still follows the profile
   });
 
-  it("the lessons list shows the minutes a studied lesson was written for, and the usual minutes for the rest", async () => {
+  it("a written lesson shows the time estimated from its own words and questions, on its page and in the lessons list", async () => {
     const c = await learner(10);
     await choose(c, 30); // two lessons of 15 minutes
     const studied = await pass(c);
-    expect(studied.order.minutes).toBe(15);
-    const list = await c.call<LessonsResponse>(r.lessons, "/api/lessons");
-    const row = list.data.items.find((i) => i.unit_id === studied.order.unit.unit_id)!;
-    expect(row).toMatchObject({ date_kind: "studied", minutes: 15 });
+    const stored = (await r.db.loadLesson(studied.lesson_key))!.lesson;
+    const text = [stored.title, ...stored.sections.flatMap((s) => [s.heading, s.body_md, s.source_quote]), ...stored.key_points].join(" ");
+    const expected = Math.max(1, Math.round(text.split(/\s+/).filter(Boolean).length / 180 + (stored.quiz.length + stored.review_quiz.length) * 0.75));
+    expect(studied.estimate_minutes).toBe(expected);
+
+    let list = await c.call<LessonsResponse>(r.lessons, "/api/lessons");
+    expect(list.data.items.find((i) => i.unit_id === studied.order.unit.unit_id)).toMatchObject({ date_kind: "studied", minutes: expected });
+    // Not written yet: the usual lesson length from the survey.
+    expect(list.data.items.find((i) => i.state === "next")!.minutes).toBe(15);
     expect(list.data.items.filter((i) => i.state === "locked").every((i) => i.minutes === 10)).toBe(true);
+
+    const open = await openLesson(c);
+    list = await c.call<LessonsResponse>(r.lessons, "/api/lessons");
+    expect(list.data.items.find((i) => i.state === "next")!.minutes).toBe(open.data.estimate_minutes);
   });
 
   it("the short check can be taken back until a lesson is studied, so topics can be chosen again", async () => {

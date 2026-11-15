@@ -7,7 +7,7 @@ import { ErrorCard } from "@/components/ui";
 import { useGate } from "@/components/useGate";
 import type { LessonListItem, LessonsResponse } from "@/lib/api-types";
 import { api } from "@/lib/client";
-import { lessonsCopy as l } from "@/lib/copy/pages";
+import { lessonsCopy as l, sourceCopy } from "@/lib/copy/pages";
 
 function hrefFor(item: LessonListItem): string | null {
   if (item.state === "next") return "/lesson";
@@ -37,6 +37,7 @@ export default function LessonsPage() {
         <div className="space-y-1">
           <h1 className="text-h1 text-ink">{l.heading}</h1>
           {data && <p className="text-body text-ink-muted">{l.sub(data.course_title)}</p>}
+          {me?.course?.source === "topic" && <p className="text-small text-ink-muted">{sourceCopy("topic").note}</p>}
         </div>
 
         {(gateError || error) && <ErrorCard message={gateError ?? error ?? ""} onRetry={gateError ? reload : load} />}

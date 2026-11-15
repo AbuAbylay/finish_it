@@ -7,6 +7,7 @@ import { useGate } from "@/components/useGate";
 import type { MeResponse } from "@/lib/api-types";
 import { api, clearDraft, loadDraft, saveDraft } from "@/lib/client";
 import { copy } from "@/lib/content";
+import { sourceCopy } from "@/lib/copy/pages";
 import { addDays, isIsoDate, shortDate } from "@/lib/dates";
 import { WEEKDAYS, type Blocker, type Profile, type Weekday } from "@/lib/types";
 
@@ -214,7 +215,7 @@ export default function Survey() {
   };
 
   const steps: ReactNode[] = [
-    <Question key="q1" title={s.q1.question} help={isOwn(me) ? s.q1.ownNote : undefined}>
+    <Question key="q1" title={s.q1.question} help={isOwn(me) ? sourceCopy(me.course?.source).note : undefined}>
       <Chip selected onClick={() => undefined}>
         {isOwn(me) && me.course ? me.course.title : s.q1.options[0].label}
       </Chip>

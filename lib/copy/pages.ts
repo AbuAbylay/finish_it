@@ -49,6 +49,34 @@ export const enterCopy = {
 
 const thousands = (n: number) => n.toLocaleString("en-US");
 
+/** "topic": the plan's passages are study notes written by AI for a subject the learner named. Otherwise they are the learner's (or the sample's) own text. */
+export type CourseSource = "course" | "topic" | null;
+
+/**
+ * Every line that says where a course's passages came from. AI-written notes are never called the
+ * learner's course (tests/topic-label.test.ts).
+ */
+export function sourceCopy(source: CourseSource | undefined) {
+  if (source === "topic") {
+    return {
+      quoteLabel: "From the AI-written notes",
+      note: "Study notes written by AI for this subject.",
+      builtFrom: (title: string) => `Built from study notes written by AI for “${title}”. They are not your course.`,
+      writing: "Writing today's lesson from the AI-written notes… usually 15–25 seconds.",
+      chatEmpty: "Answers come from today's lesson and the AI-written notes.",
+      rereadExcerpt: "The part of the AI-written notes this topic covers",
+    };
+  }
+  return {
+    quoteLabel: "From your course",
+    note: "Built from the course text you added.",
+    builtFrom: (title: string) => `Built from “${title}”.`,
+    writing: "Writing today's lesson from your course… usually 15–25 seconds.",
+    chatEmpty: "Answers come from today's lesson and your course.",
+    rereadExcerpt: "The part of your course this topic covers",
+  };
+}
+
 /** /upload: the learner's own course text. Not in COPY.md; every line needs Al-Farabi's review. */
 export const uploadCopy = {
   title: "Your course",
@@ -80,12 +108,13 @@ export const uploadCopy = {
   submit: "Build my plan",
   waitingTitle: "Building your plan…",
   waitingLine: "We are reading your course and splitting it into topics. This can take up to a minute. Keep this page open.",
+  // For an input under 900 characters, which is taken as the name of a subject.
+  waitingLineTopic: "Writing study notes and building your plan. This can take up to a minute. Keep this page open.",
   waitingElapsed: (seconds: number) => `${seconds} ${seconds === 1 ? "second" : "seconds"} so far`,
   slow: "That took longer than we can wait. Try again, or paste a shorter part of your course.",
   signedOut: "Your session has ended. Enter your ID to continue.",
   toEnter: "Go to the ID page",
   doneTitle: (n: number) => `Your plan has ${plural(n, "topic")}.`,
-  doneFrom: (title: string) => `Built from “${title}”.`,
   doneNext: "Next: 8 quick questions about your exam date and your time.",
   replace: "Use a different text",
   useSample: "Use the sample PMP course instead",
@@ -162,8 +191,6 @@ export const lessonsCopy = {
 
 export const lessonCopy = {
   title: "Today's lesson",
-  writing: "Writing today's lesson from your course… usually 15–25 seconds.",
-  fromCourse: "From your course",
   keyPoints: "Remember this",
   readDone: "I've read it. Check me.",
   quizTitle: (n: number) => `Check yourself: ${plural(n, "question")}`,
@@ -193,11 +220,9 @@ export const lessonCopy = {
   chatInvite: "Something still unclear?",
   chatInviteAction: "Ask about this lesson",
   chatPlaceholder: "Ask anything about today's lesson",
-  chatEmpty: "Answers come from today's lesson and your course.",
   chatSend: "Ask",
   chatThinking: "Thinking…",
   rereadBanner: "Re-reading. This doesn't change your progress.",
-  rereadExcerpt: "The part of your course this topic covers",
   rereadBack: "Back to lessons",
   lockedTitle: "Locked",
   toOpenLesson: "Go to today's lesson",

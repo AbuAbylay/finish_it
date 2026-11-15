@@ -625,6 +625,18 @@ export function lessonStates(record: LearnerRecord, plan: CoursePlan, today: str
   });
 }
 
+/**
+ * How long a written lesson takes, from the lesson itself: reading at 180 words a minute plus
+ * 45 seconds per question, rounded to the minute (at least 1). Lessons have no fixed length, so the
+ * "About N min" label shows this and not the minutes the learner chose.
+ */
+export function estimateMinutes(lesson: Lesson): number {
+  const text = [lesson.title, ...lesson.sections.flatMap((s) => [s.heading, s.body_md, s.source_quote]), ...lesson.key_points].join(" ");
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const questions = lesson.quiz.length + lesson.review_quiz.length;
+  return Math.max(1, Math.round(words / 180 + questions * 0.75));
+}
+
 export function lessonStateOf(record: LearnerRecord, plan: CoursePlan, today: string, unitId: string): LessonState | null {
   return lessonStates(record, plan, today).find((i) => i.unit_id === unitId)?.state ?? null;
 }

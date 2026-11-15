@@ -16,6 +16,7 @@ import { QuestionSequence } from "@/components/lesson/QuestionSequence";
 import { ResultCard } from "@/components/lesson/ResultCard";
 import { SideChat } from "@/components/lesson/SideChat";
 import { SourceQuote } from "@/components/lesson/SourceQuote";
+import { useSourceCopy } from "@/components/CourseSource";
 import { QuestionCard } from "@/components/QuestionCard";
 import { StatusPill } from "@/components/StatusPill";
 import { Button, ErrorCard, Spinner } from "@/components/ui";
@@ -57,9 +58,10 @@ function signature(params: Params): string {
 }
 
 function LessonSkeleton() {
+  const source = useSourceCopy();
   return (
     <>
-      <Spinner label={t.writing} />
+      <Spinner label={source.writing} />
       <div className="space-y-4" aria-hidden>
         <div className="skeleton h-7 w-40" />
         <div className="skeleton h-9 w-3/4" />
@@ -87,7 +89,7 @@ function LessonHeader({ data, sessionLabel }: { data: PresentedLesson; sessionLa
   return (
     <header className="space-y-3">
       {sessionLabel && <p className="text-small font-semibold text-ink-muted">{sessionLabel}</p>}
-      <ModeBadges mode={data.order.mode} minutes={data.order.minutes} />
+      <ModeBadges mode={data.order.mode} minutes={data.estimate_minutes} />
       <h1 className="text-h1 text-ink">{data.lesson.title}</h1>
       <WhyLine text={data.order.why} />
     </header>
@@ -112,6 +114,7 @@ export default function LessonPage() {
 }
 
 function LessonView() {
+  const source = useSourceCopy();
   const router = useRouter();
   const search = useSearchParams();
   const urlKey = search.get("k") ?? search.get("key");
@@ -339,7 +342,7 @@ function LessonView() {
             </section>
           </>
         ) : (
-          <SourceQuote quote={data.unit.excerpt} label={t.rereadExcerpt} />
+          <SourceQuote quote={data.unit.excerpt} label={source.rereadExcerpt} />
         )}
         <Button variant="secondary" onClick={() => router.push("/lessons")}>
           <Icon name="chevron-left" />

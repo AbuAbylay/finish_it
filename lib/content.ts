@@ -20,7 +20,6 @@ export const copy = {
     q1: {
       question: "What are you studying for?",
       options: [{ label: "PMP exam prep (sample course)", value: "PMP exam prep" }],
-      ownNote: "Built from the course text you added.",
     },
     q2: {
       question: "Why does this certification matter to you?",
