@@ -10,7 +10,7 @@ import { Button, Card, ErrorCard, Spinner } from "@/components/ui";
 import { STAGE_HOME, useGate } from "@/components/useGate";
 import { api, clearDraft, type ApiResult } from "@/lib/client";
 import { enterCopy, uploadCopy as c } from "@/lib/copy/pages";
-import { UPLOAD_MAX_CHARS, UPLOAD_MIN_CHARS } from "@/lib/upload";
+import { PDF_MAX_BYTES, UPLOAD_MAX_CHARS, UPLOAD_MIN_CHARS } from "@/lib/upload";
 
 /** POST /api/course */
 interface CourseResponse {
@@ -27,6 +27,7 @@ type Failure = Extract<ApiResult<unknown>, { ok: false }>;
 type Problem = { kind: "retry"; message: string; action: Action } | { kind: "signed_out"; message: string };
 
 const TEXT_FILE = /\.(txt|md|markdown)$/i;
+const PDF_FILE = /\.pdf$/i;
 const MAX_FILE_BYTES = 1_000_000;
 
 export default function UploadPage() {
@@ -39,6 +40,7 @@ export default function UploadPage() {
   const [hasSample, setHasSample] = useState(false);
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [fileNote, setFileNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const [loadingText, setLoadingText] = useState<"pdf" | "example" | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
   const [seconds, setSeconds] = useState(0);
   const busy = useRef(false);
@@ -137,20 +139,52 @@ export default function UploadPage() {
     router.push(res.data.kept ? STAGE_HOME.lesson : STAGE_HOME.survey);
   }
 
+  /** Puts loaded text in the box, like a paste. */
+  function fill(content: string, note: string) {
+    setText(content);
+    setFieldError(null);
+    clearRetry();
+    setFileNote({ ok: true, text: note });
+  }
+
+  async function loadExample() {
+    setLoadingText("example");
+    const res = await api<{ text: string }>("/api/course/example");
+    setLoadingText(null);
+    if (!res.ok) return setFileNote({ ok: false, text: c.exampleFailed });
+    fill(res.data.text, c.exampleLoaded);
+  }
+
+  /** The server reads the PDF's text layer and sends the text back; the plan is then built like any pasted text. */
+  async function onPdf(file: File) {
+    if (file.size > PDF_MAX_BYTES) return setFileNote({ ok: false, text: c.pdfTooBig });
+    setLoadingText("pdf");
+    setFileNote(null);
+    try {
+      const res = await fetch("/api/course/pdf", { method: "POST", headers: { "content-type": "application/pdf" }, body: file, credentials: "same-origin" });
+      const data = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (res.status === 401) return setProblem({ kind: "signed_out", message: c.signedOut });
+      if (!res.ok || typeof data.text !== "string") return setFileNote({ ok: false, text: data.error || c.pdfUnreadable });
+      fill(data.text, c.fileLoaded(file.name));
+    } catch {
+      setFileNote({ ok: false, text: c.pdfUnreadable });
+    } finally {
+      setLoadingText(null);
+    }
+  }
+
   async function onFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = ""; // so picking the same file again is noticed
     if (!file) return;
+    if (PDF_FILE.test(file.name) || file.type === "application/pdf") return onPdf(file);
     if (!TEXT_FILE.test(file.name)) return setFileNote({ ok: false, text: c.fileWrongType });
     if (file.size > MAX_FILE_BYTES) return setFileNote({ ok: false, text: c.fileTooBig });
     try {
       const content = await file.text();
       if (content.includes("\u0000")) return setFileNote({ ok: false, text: c.fileUnreadable });
       if (content.trim() === "") return setFileNote({ ok: false, text: c.fileEmpty });
-      setText(content);
-      setFieldError(null);
-      clearRetry();
-      setFileNote({ ok: true, text: c.fileLoaded(file.name) });
+      fill(content, c.fileLoaded(file.name));
     } catch {
       setFileNote({ ok: false, text: c.fileUnreadable });
     }
@@ -259,10 +293,15 @@ export default function UploadPage() {
               )}
 
               <div className="space-y-2">
-                <input ref={fileRef} type="file" accept=".txt,.md,.markdown,text/plain,text/markdown" className="sr-only" tabIndex={-1} aria-hidden onChange={onFile} />
-                <Button variant="secondary" className="w-full sm:w-auto" onClick={() => fileRef.current?.click()}>
-                  {c.chooseFile}
-                </Button>
+                <input ref={fileRef} type="file" accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown" className="sr-only" tabIndex={-1} aria-hidden onChange={onFile} />
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" className="w-full sm:w-auto" busy={loadingText === "pdf"} busyLabel={c.readingPdf} disabled={loadingText !== null} onClick={() => fileRef.current?.click()}>
+                    {c.chooseFile}
+                  </Button>
+                  <Button variant="secondary" className="w-full sm:w-auto" busy={loadingText === "example"} disabled={loadingText !== null} onClick={() => void loadExample()}>
+                    {c.tryExample}
+                  </Button>
+                </div>
                 {fileNote && (
                   <p role={fileNote.ok ? "status" : "alert"} className={`text-small ${fileNote.ok ? "text-ink" : "font-semibold text-danger"}`}>
                     {fileNote.text}

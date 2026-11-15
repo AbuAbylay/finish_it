@@ -12,3 +12,6 @@ export const COURSE_TEXT_MIN_CHARS = 900;
 
 /** About 10,000 words: what the setup call can read and plan inside its time budget. */
 export const UPLOAD_MAX_CHARS = 60_000;
+
+/** The largest PDF file POST /api/course/pdf reads. */
+export const PDF_MAX_BYTES = 10 * 1024 * 1024;
