@@ -85,7 +85,7 @@ Local data goes to `./local.db` (SQLite). Production uses Turso; see `docs/DEPLO
 ## Check it
 
 ```bash
-npm test                              # 192 tests: rules, database, identity, locks, session length, upload, PDF, grading, reminders, AI layer
+npm test                              # 195 tests: rules, database, identity, locks, session length, upload, PDF, grading, reminders, AI layer
 npx tsc --noEmit
 npm run build && npm start            # in one terminal
 node scripts/e2e.mjs                  # in another: the whole juror path over HTTP
