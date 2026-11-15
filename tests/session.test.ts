@@ -99,6 +99,28 @@ describe("session length over the API", () => {
     expect(plan.data.lesson_minutes).toBe(20); // the usual lesson length still follows the profile
   });
 
+  it("the lessons list shows the minutes a studied lesson was written for, and the usual minutes for the rest", async () => {
+    const c = await learner(10);
+    await choose(c, 30); // two lessons of 15 minutes
+    const studied = await pass(c);
+    expect(studied.order.minutes).toBe(15);
+    const list = await c.call<LessonsResponse>(r.lessons, "/api/lessons");
+    const row = list.data.items.find((i) => i.unit_id === studied.order.unit.unit_id)!;
+    expect(row).toMatchObject({ date_kind: "studied", minutes: 15 });
+    expect(list.data.items.filter((i) => i.state === "locked").every((i) => i.minutes === 10)).toBe(true);
+  });
+
+  it("the short check can be taken back until a lesson is studied, so topics can be chosen again", async () => {
+    const c = await learner();
+    const undone = await c.call<{ stage: string }>(r.placement.DELETE, "/api/placement", { method: "DELETE" });
+    expect(undone.status).toBe(200);
+    expect((await c.call<MeResponse>(r.me, "/api/me")).data.stage).toBe("test");
+    const q = await c.call<{ questions: { question_id: string }[] }>(r.placement.GET, "/api/placement");
+    await c.call(r.placement.POST, "/api/placement", { method: "POST", body: { answers: Object.fromEntries(q.data.questions.map((x) => [x.question_id, -1])) } });
+    await pass(c);
+    expect((await c.call(r.placement.DELETE, "/api/placement", { method: "DELETE" })).status).toBe(409);
+  });
+
   it("the first choice of a day stands, so switching cannot write a second lesson", async () => {
     const c = await learner();
     expect((await choose(c, 20)).data.chosen).toBe(20);

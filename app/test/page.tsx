@@ -47,9 +47,8 @@ function Options({ q, chosen, onChoose }: { q: PublicQuestion; chosen: number | 
 
 function PlanScreen({ plan, studyDays: chosen, onStart }: { plan: PlanResponse; studyDays: Weekday[]; onStart: () => void }) {
   const known = plan.units.filter((u) => u.status === "known").length;
-  const studyDays = WEEKDAYS.filter((d) => chosen.includes(d))
-    .map((d) => copy.survey.days[d])
-    .join(", ");
+  const picked = WEEKDAYS.filter((d) => chosen.includes(d));
+  const studyDays = picked.length === WEEKDAYS.length ? null : picked.map((d) => copy.survey.days[d]).join(", ");
   const knownLine = t.known(known, plan.units_total);
   const lessonsLine = t.lessons(plan.pace.lessons_left, plan.lesson_minutes, studyDays);
   return (

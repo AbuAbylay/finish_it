@@ -134,6 +134,7 @@ function LessonView() {
   const shown = useRef<string | null>(null);
   const reviewRef = useRef<HTMLElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   /** Puts the address bar in step with what the page shows, without loading anything. */
   const setUrl = useCallback((params: Params) => {
@@ -389,8 +390,11 @@ function LessonView() {
                 seed={seed}
                 checked={checked}
                 onCheck={check}
-                onDone={() => setReviewDone(true)}
-                doneLabel={t.next}
+                onDone={() => {
+                  setReviewDone(true);
+                  setTimeout(() => bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                }}
+                doneLabel={t.toLesson}
                 holdLast={false}
               />
             )
@@ -398,7 +402,9 @@ function LessonView() {
         </section>
       )}
 
-      <LessonBody lesson={data.lesson} />
+      <div ref={bodyRef} className="scroll-mt-20">
+        <LessonBody lesson={data.lesson} />
+      </div>
 
       {!started && !result && (
         <Button className="h-12 w-full" onClick={() => setStarted(true)}>

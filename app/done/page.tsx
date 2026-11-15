@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { Button, Card, ErrorCard, Skeleton } from "@/components/ui";
 import { useGate } from "@/components/useGate";
 import type { PlanResponse } from "@/lib/api-types";
-import { api, onDayChange } from "@/lib/client";
+import { api, clearDraft, onDayChange } from "@/lib/client";
 import { copy } from "@/lib/content";
 import { diffDays } from "@/lib/dates";
 
@@ -14,6 +14,19 @@ export default function Done() {
   const { me, error: gateError, reload } = useGate(["done"]);
   const [plan, setPlan] = useState<PlanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+
+  /** Nothing was studied: take the short check back and reopen the questions at the topics. */
+  async function chooseAgain() {
+    setChoosing(true);
+    const res = await api("/api/placement", { method: "DELETE" });
+    if (!res.ok) {
+      setChoosing(false);
+      return setError(res.error);
+    }
+    clearDraft("survey");
+    router.push("/survey?q=4");
+  }
 
   async function load() {
     setError(null);
@@ -42,6 +55,17 @@ export default function Done() {
         {!plan ? (
           <Card>
             <Skeleton lines={4} />
+          </Card>
+        ) : plan.sessions_done === 0 ? (
+          <Card className="space-y-5">
+            <div className="space-y-2">
+              <p className="text-small font-semibold text-ink-muted">{plan.course_title}</p>
+              <h1 className="text-h1 text-ink">{copy.done.nothingTitle}</h1>
+              <p className="text-body-lg text-ink">{copy.done.nothingLine}</p>
+            </div>
+            <Button className="w-full sm:w-auto" busy={choosing} busyLabel={copy.done.choosing} onClick={chooseAgain}>
+              {copy.done.chooseAgain}
+            </Button>
           </Card>
         ) : (
           <Card band="green" bandIcon="check-circle" className="space-y-5">

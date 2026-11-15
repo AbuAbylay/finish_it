@@ -13,7 +13,7 @@ import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse } from "@/lib/api-types";
 import { api } from "@/lib/client";
 import { copy } from "@/lib/content";
-import { homeCopy as h, paceSentence } from "@/lib/copy/pages";
+import { homeCopy as h, paceSentence, todayButton } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
 const primaryLink =
@@ -96,7 +96,7 @@ export default function Home() {
                     </p>
                   )}
                   <Link href="/lesson" className={plan.studied_today && !oneMore ? secondaryLink : primaryLink}>
-                    {oneMore ? copy.session.startNext(2, plan.session.lessons_in_session) : plan.studied_today ? h.another : h.start}
+                    {todayButton(plan)}
                     <Icon name="arrow-right" />
                   </Link>
                 </>

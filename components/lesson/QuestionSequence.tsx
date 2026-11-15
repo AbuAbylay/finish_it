@@ -1,7 +1,7 @@
 "use client";
 // Questions one at a time: pick, Check (the server locks the answer and reveals feedback), Next.
 // A refresh resumes at the first unchecked question, because feedback comes back in `checked`.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import { QuestionCard } from "@/components/QuestionCard";
 import { Button } from "@/components/ui";
@@ -40,6 +40,17 @@ export function QuestionSequence({
   const [error, setError] = useState<string | null>(null);
 
   const index = questions.findIndex((q) => !advanced.has(q.question_id));
+
+  // After "Next question" the new question starts under the top bar, not above the window.
+  const top = useRef<HTMLDivElement>(null);
+  const shownIndex = useRef(index);
+  useEffect(() => {
+    if (shownIndex.current === index) return;
+    shownIndex.current = index;
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    top.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  }, [index]);
+
   if (index === -1) return null;
   const q = questions[index];
   const fb = checked[q.question_id];
@@ -61,7 +72,7 @@ export function QuestionSequence({
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={top} className="scroll-mt-20 space-y-4">
       <QuestionCard
         key={q.question_id}
         q={q}

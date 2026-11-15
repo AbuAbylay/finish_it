@@ -120,6 +120,13 @@ export const homeCopy = {
   reviewEmptyLine: "Questions you miss come back here, on your next study day.",
 } as const;
 
+/** The one name of the button that opens today's lesson, the same on Home and on Plan. */
+export function todayButton(plan: { studied_today: boolean; session: { lessons_in_session: number; lessons_done_today: number } }): string {
+  const { lessons_in_session: total, lessons_done_today: done } = plan.session;
+  if (total > 1 && done > 0 && done < total) return copy.session.startNext(done + 1, total);
+  return plan.studied_today ? homeCopy.another : homeCopy.start;
+}
+
 /** Pace sentences from COPY.md "Calendar tracker and pace" (single source: copy.pace in lib/content.ts). */
 export function paceSentence(p: { lessons_left: number; days_left: number; spare_days: number; on_track: boolean; behind_by: number }): {
   line: string;
@@ -158,7 +165,8 @@ export const lessonCopy = {
   checking: "Checking…",
   right: "Right.",
   notQuite: "Not quite. The answer is",
-  next: "Next",
+  next: "Next question",
+  toLesson: "Continue to the lesson",
   seeResult: "See my result",
   grading: "Saving your result…",
   reviewFirst: "Answer the questions under “From earlier” first.",

@@ -13,6 +13,7 @@ import { WhyLine } from "@/components/WhyLine";
 import type { PlanResponse, ReminderResponse, ReminderType } from "@/lib/api-types";
 import { api, onDayChange } from "@/lib/client";
 import { copy } from "@/lib/content";
+import { todayButton } from "@/lib/copy/pages";
 import { shortDate } from "@/lib/dates";
 
 const p = copy.plan;
@@ -34,7 +35,7 @@ function EmailPreview({ data }: { data: ReminderResponse }) {
   const types = ["planned_day", "missed_day"] as const;
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-1 rounded-control bg-surface-muted p-1" role="tablist" aria-label={p.remindersPreview}>
+      <div className="grid grid-cols-2 gap-1 rounded-control bg-surface-muted p-1" role="tablist" aria-label={p.remindersTabs}>
         {types.map((type) => (
           <button
             key={type}
@@ -51,15 +52,11 @@ function EmailPreview({ data }: { data: ReminderResponse }) {
           </button>
         ))}
       </div>
-      <div>
-        {data.today_type ? (
+      {data.today_type && (
+        <div>
           <Pill icon="clock" tone="accent" label={`${p.emailToday}: ${p.emailTypes[data.today_type]}`} />
-        ) : (
-          <p className="text-small text-ink-muted">
-            {data.none_reason === "finished" ? p.emailNoneFinished : data.none_reason === "rest" ? p.emailNoneRest : p.emailNone}
-          </p>
-        )}
-      </div>
+        </div>
+      )}
       <div id={`${base}-panel`} role="tabpanel" aria-labelledby={`${base}-${tab}`} className="overflow-hidden rounded-control border border-line">
         <div className="space-y-1 border-b border-line bg-surface-muted px-4 py-3 text-small">
           <p className="text-ink-muted">{p.to}</p>
@@ -148,7 +145,7 @@ export default function PlanPage() {
             <div className="space-y-3 border-t border-line pt-4">
               <WhyLine text={plan.next.why} />
               <Button className="w-full sm:w-auto" onClick={() => router.push("/lesson")}>
-                {plan.studied_today ? p.another : p.start}
+                {todayButton(plan)}
                 <Icon name="arrow-right" />
               </Button>
             </div>
