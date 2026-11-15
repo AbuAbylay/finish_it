@@ -12,7 +12,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/ai/client", () => ({ callModel, FINAL_FAILURES: ["no_key", "auth", "bad_request", "refusal"] }));
 
 import { setupCourse, sideChat, writeLesson } from "@/ai/real";
-import { cutExcerpt, flat, planSize, questionErrors, snapQuote, trimToWords, validateLesson, validatePlan, wordBudget } from "@/ai/validate";
+import { cutExcerpt, flat, lessonShape, levelOf, planSize, questionErrors, snapQuote, trimToWords, validateLesson, validatePlan } from "@/ai/validate";
 
 const root = path.resolve(__dirname, "..");
 const material = readFileSync(path.join(root, "sample/course.txt"), "utf8");
@@ -188,7 +188,6 @@ describe("validator: lesson", () => {
     ["a review quote taken from the wrong excerpt", (l: Lesson) => void (l.review_quiz[0].source_quote = sentencesOf(unit.excerpt)[4]), "review_quiz[0]: source_quote is not word for word"],
     ["seven sections", (l: Lesson) => void (l.sections = Array(7).fill(l.sections[0])), "1 to 6 sections"],
     ["four key points", (l: Lesson) => void (l.key_points = ["a", "b", "c", "d"]), "at most 3"],
-    ["more words than the session allows", (l: Lesson) => void (l.sections[0].body_md = "word ".repeat(1000)), "the limit for 15 minutes is 960"],
   ])("rejects %s", (_name, breakIt, message) => {
     const l = lesson();
     breakIt(l);
@@ -197,12 +196,30 @@ describe("validator: lesson", () => {
     expect(result.errors.join("\n")).toContain(message);
   });
 
-  it("sizes a lesson from its minutes: more time adds parts and questions, not only words", () => {
-    expect(wordBudget(10)).toEqual({ target: 340, max: 680, sections: 3, parts: ["idea", "worked_example", "trap"], quiz: 3 });
-    expect(wordBudget(15)).toEqual({ target: 480, max: 960, sections: 4, parts: ["idea", "worked_example", "trap", "harder_case"], quiz: 4 });
-    expect(wordBudget(20)).toEqual({ target: 620, max: 1240, sections: 5, parts: ["idea", "worked_example", "trap", "harder_case", "use_it"], quiz: 5 });
-    expect(wordBudget(12)).toMatchObject({ sections: 3, quiz: 3 }); // each half of a 25-minute session
-    expect(wordBudget(5).max).toBe(680); // never a budget too small to write a lesson in
+  it("shapes a lesson from its minutes: more time adds parts and questions", () => {
+    expect(lessonShape(10)).toEqual({ sections: 3, parts: ["idea", "worked_example", "trap"], quiz: 3 });
+    expect(lessonShape(15)).toEqual({ sections: 4, parts: ["idea", "worked_example", "trap", "harder_case"], quiz: 4 });
+    expect(lessonShape(20)).toEqual({ sections: 5, parts: ["idea", "worked_example", "trap", "harder_case", "use_it"], quiz: 5 });
+    expect(lessonShape(12)).toMatchObject({ sections: 3, quiz: 3 }); // each half of a 25-minute session
+    expect(lessonShape(5)).toMatchObject({ sections: 3, quiz: 3 });
+  });
+
+  it("shapes a lesson from the learner's level: support repeats the example, stretch goes to the hard case", () => {
+    expect(lessonShape(10, "support").parts).toEqual(["idea", "worked_example", "second_example"]);
+    expect(lessonShape(15, "support").parts).toEqual(["idea", "worked_example", "second_example", "trap"]);
+    expect(lessonShape(10, "stretch").parts).toEqual(["idea", "harder_case", "trap"]);
+    expect(lessonShape(15, "stretch").parts).toEqual(["idea", "harder_case", "trap", "use_it"]);
+    expect(lessonShape(15, "support").quiz).toBe(4); // the number of questions follows the minutes at every level
+    // A unit taught again is taught with support unless the order says otherwise.
+    expect(levelOf(order)).toBe("standard");
+    expect(levelOf({ ...order, mode: "review" })).toBe("support");
+    expect(levelOf({ ...order, mode: "review", level: "stretch" })).toBe("stretch");
+  });
+
+  it("has no word limit: a lesson is as long as its content needs", () => {
+    const l = lesson();
+    l.sections[0].body_md = "word ".repeat(3000);
+    expect(validateLesson(l, order)).toEqual({ ok: true, errors: [] });
   });
 
   it("accepts a quiz of 3 to 5 questions and a lesson of up to 6 sections", () => {
@@ -285,8 +302,14 @@ describe("writeLesson", () => {
     expect(request).toMatchObject({ call: "lesson", model: "claude-sonnet-5-5", effort: "medium" });
     expect(request.timeoutMs).toBeLessThanOrEqual(50_000);
     const sent = JSON.parse(userText(0).replace(/<\/?order>/g, ""));
-    expect(sent).toMatchObject({ mode: "new", minutes: 15, target_words: 480, max_words: 960, sections: 4, quiz_questions: 4 });
+    expect(sent).toMatchObject({ mode: "new", minutes: 15, level: "standard", sections: 4, quiz_questions: 4 });
     expect(sent.parts).toEqual(["idea", "worked_example", "trap", "harder_case"]);
+    // No word count is sent: the length of a lesson follows from the passage.
+    expect(sent).not.toHaveProperty("target_words");
+    expect(sent).not.toHaveProperty("max_words");
+    // Without a mission or a learning digest in the order, both are built from `learner`.
+    expect(sent.mission).toEqual({ why: "Move into a project manager role", focus: [] });
+    expect(sent.learning_record).toEqual({ starting_point: "Coordinates small projects" });
     expect(sent.unit.excerpt).toBe(unit.excerpt);
     expect(sent).not.toHaveProperty("why");
   });

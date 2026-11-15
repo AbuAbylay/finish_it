@@ -1,6 +1,6 @@
 // The checks every model output must pass before the app sees it (SAGYNDYK-AI.md "Validator").
 // Plain code: no model and no network, so every rule here is unit-tested directly.
-import type { CoursePlan, Lesson, Order, Question, ValidationResult } from "@/lib/types";
+import type { CoursePlan, Lesson, Level, Order, Question, ValidationResult } from "@/lib/types";
 
 /** A text of one page still gives two lessons; the longest text gives twelve. */
 export const MIN_UNITS = 2;
@@ -144,21 +144,52 @@ export function planSize(wordsInMaterial: number): { units: number; placement_qu
   return { units, placement_questions: Math.min(MAX_PLACEMENT_QUESTIONS, units) };
 }
 
-export type LessonPart = "idea" | "worked_example" | "trap" | "harder_case" | "use_it";
+export type LessonPart = "idea" | "worked_example" | "second_example" | "trap" | "harder_case" | "use_it";
 
 /**
- * What a lesson of this many minutes holds. More time buys more practice, not only more reading:
- * about 10 minutes is the idea, a worked example and the usual trap, with 3 questions; about 15
- * adds a harder case and a 4th question; about 20 adds steps to use it this week and a 5th question.
- * A session of 25 minutes or more is two lessons (lib/rules.ts). The lesson call aims for `target`
- * words across its sections and may never pass `max`.
+ * The parts of a lesson, by level and by length (about 10, 15 and 20 minutes).
+ * Support repeats the worked example in a second setting before anything harder. Stretch goes
+ * straight to the harder case. Standard sits between them.
  */
-export function wordBudget(minutes: number): { target: number; max: number; sections: number; parts: LessonPart[]; quiz: number } {
-  const parts: LessonPart[] = ["idea", "worked_example", "trap"];
-  if (minutes >= 13) parts.push("harder_case");
-  if (minutes >= 18) parts.push("use_it");
-  const target = parts.length === 3 ? 340 : parts.length === 4 ? 480 : 620;
-  return { target, max: target * 2, sections: parts.length, parts, quiz: parts.length };
+const PARTS: Record<Level, [LessonPart[], LessonPart[], LessonPart[]]> = {
+  support: [
+    ["idea", "worked_example", "second_example"],
+    ["idea", "worked_example", "second_example", "trap"],
+    ["idea", "worked_example", "second_example", "trap", "use_it"],
+  ],
+  standard: [
+    ["idea", "worked_example", "trap"],
+    ["idea", "worked_example", "trap", "harder_case"],
+    ["idea", "worked_example", "trap", "harder_case", "use_it"],
+  ],
+  stretch: [
+    ["idea", "harder_case", "trap"],
+    ["idea", "harder_case", "trap", "use_it"],
+    ["idea", "worked_example", "harder_case", "trap", "use_it"],
+  ],
+};
+/**
+ * The shape of one lesson: which parts it has and how many questions. Two things set it, both in code:
+ * - the minutes: about 10 is three parts and 3 questions, about 15 is four and 4, about 20 is five
+ *   and 5, so more time buys more practice (25 minutes or more is two lessons, lib/rules.ts);
+ * - the learner's level: which parts those are.
+ * There is no word target and no word limit. How long a lesson runs follows from how much the
+ * unit's passage holds: the model is told to teach what the skill needs and nothing else.
+ */
+export function lessonShape(minutes: number, level: Level = "standard"): { sections: number; parts: LessonPart[]; quiz: number } {
+  const size = minutes >= 18 ? 2 : minutes >= 13 ? 1 : 0;
+  const parts = PARTS[level][size];
+  return { sections: parts.length, parts, quiz: size + 3 };
+}
+
+/** The level a lesson is written at: the one the app chose from the learner's results, or support for a unit taught again. */
+export function levelOf(order: Order): Level {
+  return order.level ?? (order.mode === "review" ? "support" : "standard");
+}
+
+/** The shape of the lesson for one order: its minutes and its level. */
+export function shapeFor(order: Order): ReturnType<typeof lessonShape> {
+  return lessonShape(order.minutes, levelOf(order));
 }
 
 // --- cutting a whole plan's passages -------------------------------------------
@@ -298,9 +329,6 @@ export function validateLesson(lesson: Lesson, order: Order): ValidationResult {
     if (!s.source_quote?.trim()) errors.push(`${where}: source_quote is empty`);
     else if (!flat(excerpt).includes(flat(s.source_quote))) errors.push(`${where}: source_quote is not word for word in the excerpt`);
   });
-  const words = sections.reduce((n, s) => n + countWords(s.body_md ?? ""), 0);
-  const { max } = wordBudget(order.minutes);
-  if (words > max) errors.push(`the sections have ${words} words; the limit for ${order.minutes} minutes is ${max}`);
   if (keyPoints.length > MAX_KEY_POINTS) errors.push(`key_points has ${keyPoints.length} lines; at most ${MAX_KEY_POINTS}`);
 
   if (quiz.length < MIN_QUIZ_QUESTIONS || quiz.length > MAX_QUIZ_QUESTIONS) {

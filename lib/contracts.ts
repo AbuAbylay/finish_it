@@ -39,7 +39,7 @@ const lessonSchema = z.object({
   title: z.string().min(1),
   sections: z.array(z.object({ heading: z.string(), body_md: z.string(), source_quote: z.string() })).min(1),
   key_points: z.array(z.string()),
-  // 3 questions in a lesson of about 10 minutes, 4 in about 15, 5 in about 20 (ai/validate.ts wordBudget).
+  // 3 questions in a lesson of about 10 minutes, 4 in about 15, 5 in about 20 (ai/validate.ts lessonShape).
   quiz: z.array(questionSchema).min(3).max(5),
   review_quiz: z.array(questionSchema),
 });

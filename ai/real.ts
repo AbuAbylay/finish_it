@@ -19,12 +19,13 @@ import {
   countWords,
   cutPassages,
   flat,
+  levelOf,
   planSize,
   questionErrors,
+  shapeFor,
   snapQuote,
   validateLesson,
   validatePlan,
-  wordBudget,
 } from "./validate";
 
 export { validateLesson, validatePlan } from "./validate";
@@ -46,8 +47,8 @@ function effort(name: "SETUP_EFFORT" | "LESSON_EFFORT", fallback: Effort): Effor
 
 /** Time limits per call, kept under each route's maxDuration (60 s for setup and lesson, 30 s for chat). */
 const BUDGET_MS = { setup: 55_000, lesson: 50_000, chat: 25_000 };
-/** A lesson takes 13 to 25 s, longer for longer sessions. Capping the first try leaves time for a second one. */
-const LESSON_FIRST_TRY_MS = 38_000;
+/** A lesson takes 13 to 30 s, longer for a long passage. Capping the first try leaves time for a second one. */
+const LESSON_FIRST_TRY_MS = 40_000;
 const CHAT_FIRST_TRY_MS = 15_000;
 /** A second try is not started with less time than this left. */
 const MIN_RETRY_MS = 8_000;
@@ -332,19 +333,21 @@ function lessonFrom(raw: unknown, order: Order): Accepted<Lesson> {
 
 export async function writeLesson(order: Order): Promise<Lesson | AiError> {
   try {
-    const budget = wordBudget(order.minutes);
-    // The model gets what the order contains plus the shape it must fill: which parts to write, how long,
-    // how many questions. Code sets that shape from the minutes. `why` is written by code for the page.
+    const shape = shapeFor(order);
+    // The model gets what the order contains plus the shape it must fill: which parts to write and how many
+    // questions. Code sets that shape from the minutes and the learner's level. There is no word count: the
+    // length follows from the unit's passage. `why` is written by code for the page.
     const brief = {
       mode: order.mode,
       minutes: order.minutes,
-      target_words: budget.target,
-      max_words: budget.max,
-      sections: budget.sections,
-      parts: budget.parts,
-      quiz_questions: budget.quiz,
+      level: levelOf(order),
+      sections: shape.sections,
+      parts: shape.parts,
+      quiz_questions: shape.quiz,
       unit: order.unit,
-      learner: order.learner,
+      // The teach skill's two anchors: why this learner studies, and the evidence of where they stand.
+      mission: order.mission ?? { why: order.learner.goal, focus: order.learner.focus },
+      learning_record: order.learned ?? { starting_point: order.learner.prior_knowledge },
       review_concepts: order.review_concepts,
     };
     return await checked<Lesson>({
