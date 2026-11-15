@@ -656,4 +656,11 @@ describe("the level, the mission and the learning digest sent with an order", ()
     expect(digest.misconceptions).toEqual([{ concept: "alpha", topic: "Unit u03", times_missed: 1 }]);
     expect(orderOf(pickNext(second, plan, WED)).learned).toEqual(digest);
   });
+
+  it("an order from a topic plan says its material is AI-written notes; other orders do not", () => {
+    const topicPlan: CoursePlan = { ...plan, source: "topic" };
+    expect(orderOf(pickNext(placed(), topicPlan, MON)).source).toBe("topic");
+    expect(orderOf(pickNext(placed(), plan, MON))).not.toHaveProperty("source");
+    expect(orderOf(pickNext(placed(), { ...plan, source: "course" }, MON))).not.toHaveProperty("source");
+  });
 });

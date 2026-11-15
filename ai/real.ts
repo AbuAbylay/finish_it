@@ -409,6 +409,9 @@ export async function writeLesson(order: Order): Promise<Lesson | AiError> {
       sections: shape.sections,
       parts: shape.parts,
       quiz_questions: shape.quiz,
+      // "course": the passages are the learner's own text. "ai_notes": study notes written by AI, which the
+      // lesson must call "these notes" and never "your course".
+      material: order.source === "topic" ? "ai_notes" : "course",
       unit: order.unit,
       // The teach skill's two anchors: why this learner studies, and the evidence of where they stand.
       mission: order.mission ?? { why: order.learner.goal, focus: order.learner.focus },
@@ -435,7 +438,14 @@ export async function writeLesson(order: Order): Promise<Lesson | AiError> {
 
 // --- side chat ------------------------------------------------------------------
 
-export async function sideChat(lesson: Lesson, excerpt: string, history: ChatTurn[], question: string): Promise<string | AiError> {
+export async function sideChat(
+  lesson: Lesson,
+  excerpt: string,
+  history: ChatTurn[],
+  question: string,
+  /** "topic" when the excerpt is study notes written by AI, not the learner's own text. */
+  source?: "course" | "topic",
+): Promise<string | AiError> {
   try {
     // The app passes the quiz only once the lesson is graded; until then the model never sees a question or an answer.
     const answered = [...lesson.quiz, ...lesson.review_quiz].map((q) => ({
@@ -450,7 +460,8 @@ export async function sideChat(lesson: Lesson, excerpt: string, history: ChatTur
       key_points: lesson.key_points,
       ...(answered.length > 0 ? { answered_quiz: answered } : {}),
     };
-    const system = `${await prompt("side-chat")}\n\n<lesson>\n${JSON.stringify(open, null, 2)}\n</lesson>\n\n<excerpt>\n${excerpt}\n</excerpt>`;
+    const material = source === "topic" ? "ai_notes" : "course";
+    const system = `${await prompt("side-chat")}\n\n<material>${material}</material>\n\n<lesson>\n${JSON.stringify(open, null, 2)}\n</lesson>\n\n<excerpt>\n${excerpt}\n</excerpt>`;
     const turns = history.filter((t) => t.content.trim() !== "").slice(-MAX_HISTORY_TURNS);
     while (turns.length > 0 && turns[0].role !== "user") turns.shift();
     const messages = [...turns.map((t) => ({ role: t.role, content: t.content })), { role: "user" as const, content: question }];

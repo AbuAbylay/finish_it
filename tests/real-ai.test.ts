@@ -314,6 +314,17 @@ describe("writeLesson", () => {
     expect(sent).not.toHaveProperty("why");
   });
 
+  it("tells the model what the material is: the learner's course, or notes written by AI", async () => {
+    callModel.mockResolvedValue(reply(modelLesson()));
+    await writeLesson(order);
+    expect(JSON.parse(userText(0).replace(/<\/?order>/g, "")).material).toBe("course");
+    await writeLesson({ ...order, source: "topic" });
+    expect(JSON.parse(userText(1).replace(/<\/?order>/g, "")).material).toBe("ai_notes");
+    const system = String(callModel.mock.calls[1][0].system);
+    expect(system).toContain("`ai_notes`");
+    expect(system).toContain("these notes");
+  });
+
   it("tries once more with the validator's errors when the first reply fails a check", async () => {
     const bad = modelLesson();
     bad.quiz.pop();
@@ -592,6 +603,15 @@ describe("sideChat", () => {
 
     await sideChat(graded, unit.excerpt, [], "Why was I wrong?");
     expect(callModel.mock.calls[1][0].system).toContain("answered_quiz");
+  });
+
+  it("says whether the excerpt is the learner's course or notes written by AI", async () => {
+    callModel.mockResolvedValue({ ok: true, text: "ok" });
+    await sideChat(open, unit.excerpt, [], "?");
+    await sideChat(open, unit.excerpt, [], "?", "topic");
+    expect(callModel.mock.calls[0][0].system).toContain("<material>course</material>");
+    expect(callModel.mock.calls[1][0].system).toContain("<material>ai_notes</material>");
+    expect(callModel.mock.calls[1][0].system).toContain("these notes");
   });
 
   it("sends the conversation so far, starting from a learner turn", async () => {

@@ -440,6 +440,8 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string,
       level,
       ...(profile ? { mission: missionOf(profile, today) } : {}),
       learned: learnedOf(record, plan),
+      // A plan built from a subject's name: the lesson call is told its material is AI-written notes.
+      ...(plan.source === "topic" ? { source: "topic" as const } : {}),
     },
   };
 }

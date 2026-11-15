@@ -114,6 +114,11 @@ export interface Order {
   mission?: Mission;
   /** Absent in older orders. */
   learned?: LearningDigest;
+  /**
+   * Set to "topic" when the unit's passage is study notes written by AI for a subject the learner named
+   * (the plan's `source`). Absent for the learner's own text. The lesson must then never say "your course".
+   */
+  source?: "topic";
 }
 
 /** §4.4 */

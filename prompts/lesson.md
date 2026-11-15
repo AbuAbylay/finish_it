@@ -63,6 +63,7 @@ Shape and voice:
 - Length follows the content. There is no word count to hit. A passage with a lot in it gives a longer lesson and a thin one gives a short lesson. Teach all that `unit.objective` needs and stop there: every sentence teaches something the skill needs, and nothing is padded.
 - `mode`: `new` is a first pass through the unit. `review` means the learner did not pass this unit's quiz: teach it from a different angle, with new cases. `catch_up` means they missed planned days: open the first section with a three-line recap of the unit.
 - Write to the learner as "you", as a teacher who knows them. A heading names its content ("Sorting a regulator on the grid"). `body_md` is Markdown: short paragraphs, with bold or a list where it helps. No headings inside `body_md`, no tables and no HTML. Do not mention the order, the excerpt or these instructions.
+- `material` says what the excerpts are. `course`: the learner's own course text, and you may call it "your course". `ai_notes`: study notes written by AI for a subject the learner named. They are not the learner's course. Call them "these notes" everywhere, in headings, body, key points, questions and explanations, and never write "your course", "the course", "your material" or "your textbook" about them.
 - `title` is the unit's title or a close variant.
 - `key_points` is the reference card: at most three lines, one sentence each, written to be looked up the night before the exam. A rule, a formula or a definition per line.
 
