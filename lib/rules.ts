@@ -433,8 +433,15 @@ export function pickNext(record: LearnerRecord, plan: CoursePlan, today: string,
   };
 }
 
-/** Quiz length from PROJECT §4.4, used to turn a stored score back into "x of 3". */
-const QUIZ_LENGTH = 3;
+/**
+ * A stored score in words. A lesson has 3, 4 or 5 questions and the record keeps only the score,
+ * so the line names a share and never a count that could be wrong.
+ */
+function scoreWords(score: number): string {
+  if (score <= 0) return "none of the questions right";
+  if (score >= 1) return "every question right";
+  return `${Math.round(score * 100)}% of the questions right`;
+}
 
 const quoted = (concepts: ReviewConcept[]) => concepts.map((c) => `“${c.concept}”`).join(" and ");
 
@@ -467,8 +474,7 @@ function whyLine(a: {
   if (a.mode === "review") {
     const last = a.record.sessions.at(-1);
     if (last && last.unit_id === a.unit.unit_id) {
-      const correct = Math.round(a.lastScore * QUIZ_LENGTH);
-      return `Last time you got ${correct} of ${QUIZ_LENGTH} on ${title}. Today goes over it again in a different way.${startsWithReview}`;
+      return `Last time you got ${scoreWords(a.lastScore)} on ${title}. Today goes over it again in a different way.${startsWithReview}`;
     }
     return `${title} still needs another pass. Today goes over it again in a different way.${startsWithReview}`;
   }

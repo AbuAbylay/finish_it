@@ -242,7 +242,7 @@ describe("picker", () => {
     const order = orderOf(pickNext(r, plan, TUE));
     expect(order.mode).toBe("review");
     expect(order.unit.unit_id).toBe("u02");
-    expect(order.why).toBe("Last time you got 0 of 3 on **Unit u02**. Today goes over it again in a different way. It starts with a quick review of “alpha” and “beta”.");
+    expect(order.why).toBe("Last time you got none of the questions right on **Unit u02**. Today goes over it again in a different way. It starts with a quick review of “alpha” and “beta”.");
   });
 
   it("catch_up: a planned study day was missed, last unit, at most 10 minutes", () => {
